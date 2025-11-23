@@ -1,7 +1,35 @@
+# --- FRONTEND (React + Vite) ---
 node_modules/
 dist/
+*.local
+*.log
+.vscode/
+npm-debug.log*
+
+# --- BACKEND (FastAPI + Python) ---
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+
+# Entorno virtual
+venv/
 .env
 .env.local
-venv/
+.env.production
+.env.development
+
+# --- SISTEMA ---
+.DS_Store
 .idea/
+*.iml
+*.swp
+
+# --- ARCHIVOS AUTO-GENERADOS ---
+coverage/
+htmlcov/
+*.egg-info/
+build/
+.cache/

@@ -3,11 +3,6 @@ from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import os
 
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
-
-
 # Cargar variables del .env
 load_dotenv()
 
