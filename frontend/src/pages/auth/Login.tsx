@@ -1,7 +1,8 @@
 import "../../styles/glass.css";
 import { useState } from "react";
 import { loginUser } from "../../services/authService";
-import { useNavigate } from "react-router-dom";
+// 👇 IMPORTANTE: Importa 'Link'
+import { useNavigate, Link } from "react-router-dom";
 
 export default function Login() {
   const nav = useNavigate();
@@ -88,7 +89,7 @@ export default function Login() {
         </button>
 
         <p>
-          ¿No tienes una cuenta? <a href="/register">Regístrate</a>
+          ¿No tienes una cuenta? <Link to="/register">Regístrate aquí</Link>
         </p>
       </div>
     </div>

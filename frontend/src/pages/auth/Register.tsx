@@ -1,7 +1,8 @@
 import "../../styles/glass.css";
 import { useState } from "react";
 import { registerUser } from "../../services/authService";
-import { useNavigate } from "react-router-dom";
+// 👇 Importa Link
+import { useNavigate, Link } from "react-router-dom";
 
 export default function Register() {
   const nav = useNavigate();
@@ -164,7 +165,7 @@ export default function Register() {
 
         <button className="glass-btn" onClick={handleSubmit}>Crear Cuenta</button>
 
-        <p>¿Ya tienes una cuenta? <a href="/login">Login</a></p>
+        <p>¿Ya tienes una cuenta? <Link to="/login">Inicia Sesión</Link></p>
       </div>
     </div>
   );
