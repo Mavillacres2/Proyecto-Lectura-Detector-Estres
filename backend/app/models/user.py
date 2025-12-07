@@ -1,10 +1,14 @@
 from sqlalchemy import Column, Integer, String
-from ..database.connection import Base
+from app.database.connection import Base
 
-# Definición del modelo de usuario
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
-    email = Column(String, unique=True)
+    full_name = Column(String(255), nullable=False)   # ← actualizado
+    email = Column(String(255), unique=True, nullable=False)
+    password = Column(String(255), nullable=False)
+    # Nuevos campos añadidos
+    # edad y genero
+    age = Column(Integer, nullable=True)
+    gender = Column(String(10), nullable=True)

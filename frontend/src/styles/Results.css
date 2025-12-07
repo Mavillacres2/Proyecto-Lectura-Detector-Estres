@@ -1,0 +1,234 @@
+/* src/styles/Results.css */
+
+/* ======= Layout general ======= */
+
+.results-page {
+  min-height: 100vh;
+  background: #f5f2ff;
+  padding: 2rem 3rem;
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #2d254d;
+}
+
+.results-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.results-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2d254d;
+  margin: 0;
+}
+
+/* Grid de tarjetas */
+.results-grid {
+  display: grid;
+  /* Por defecto: 2 columnas */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  max-width: 1100px; /* Ancho máximo para pantallas grandes */
+  margin: 0 auto;    /* Centrar en pantallas grandes */
+}
+
+/* Tarjetas */
+.card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  height: 100%; /* Para que tengan la misma altura */
+  box-sizing: border-box;
+}
+
+.card h3 {
+  margin-top: 0;
+  font-size: 1.1rem;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+/* ======= Badge nivel de estrés facial ======= */
+
+.badge {
+  display: inline-block;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.badge-bajo { background: #e5f8e6; color: #177d2f; }
+.badge-medio { background: #fff5d6; color: #b68b12; }
+.badge-alto { background: #ffe0e0; color: #c0392b; }
+
+/* ======= Barra de progreso PSS ======= */
+
+.pss-label {
+  margin-bottom: 0.5rem;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 12px;
+  background: #eee;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #4b3bbd;
+  transition: width 0.5s ease;
+}
+
+.progress-percent {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+}
+
+/* ======= Lista de emociones ======= */
+
+.emotion-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.emotion-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 0.95rem;
+  color: #333;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.emotion-list li:last-child {
+  border-bottom: none;
+}
+
+.emotion-name { font-weight: 500; }
+.emotion-value { font-variant-numeric: tabular-nums; }
+
+/* ======= Gráfico de barras ======= */
+
+.chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.7rem;
+  /* Altura manejada inline en React, pero base por si acaso */
+  height: 180px; 
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.25rem 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.chart-bar-fill {
+  width: 100%;
+  border-radius: 6px 6px 0 0;
+  background: #4b3bbd; /* Fallback color */
+  transition: height 0.3s ease;
+  min-height: 4px;
+}
+
+.chart-bar-label {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #333;
+}
+
+/* ======= Notas y acciones ======= */
+
+.card-note {
+  margin-top: 1rem;
+  font-size: 0.8rem;
+  color: #777;
+  line-height: 1.4;
+}
+
+.results-actions {
+  margin-top: 2rem;
+  text-align: center;
+  padding-bottom: 2rem;
+}
+
+.results-actions button {
+  padding: 12px 30px;
+  border-radius: 30px;
+  border: none;
+  background: #4b3bbd;
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.results-actions button:hover {
+  opacity: 0.9;
+}
+
+/* ======= Estado vacío (sin datos) ======= */
+
+.results-empty {
+  margin-top: 3rem;
+  text-align: center;
+}
+
+.results-empty p {
+  margin-bottom: 1rem;
+  color: #444;
+}
+
+.results-empty button {
+  padding: 12px 24px;
+  border-radius: 30px;
+  border: none;
+  background: #4b3bbd;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ========================================= */
+/* 📱 MEDIA QUERIES PARA RESPONSIVE (NUEVO) */
+/* ========================================= */
+
+/* Tablets y Móviles (< 768px) */
+@media (max-width: 768px) {
+  .results-page {
+    padding: 1.5rem; /* Reducir padding lateral */
+  }
+
+  .results-header h1 {
+    font-size: 1.5rem; /* Título más pequeño */
+  }
+
+  .results-grid {
+    grid-template-columns: 1fr; /* 1 sola columna vertical */
+    gap: 1.5rem;
+  }
+
+  .card {
+    padding: 1.2rem;
+  }
+  
+  /* Ajuste del gráfico para que no se apriete */
+  .chart {
+    gap: 0.3rem; 
+  }
+  
+  .chart-bar-label {
+    font-size: 0.65rem;
+  }
+}

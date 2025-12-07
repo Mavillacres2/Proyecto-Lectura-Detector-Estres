@@ -1,0 +1,135 @@
+/* src/styles/glass.css */
+
+.page-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  width: 100%;
+
+  /* 📷 AQUÍ ESTÁ EL CAMBIO: Usamos tu imagen de fondo */
+  background-image: url("/background.png"); 
+  background-size: cover;      /* Asegura que cubra toda la pantalla */
+  background-position: center; /* Centra la imagen */
+  background-repeat: no-repeat;
+  
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.glass-box {
+  /* Efecto de vidrio (Glassmorphism) */
+  background: rgba(255, 255, 255, 0.15); /* Blanco translúcido */
+  backdrop-filter: blur(12px);           /* Difuminado fuerte del fondo */
+  -webkit-backdrop-filter: blur(12px);   /* Soporte para Safari */
+  
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.3); /* Borde sutil brillante */
+  padding: 40px 30px;
+  
+  /* Responsive */
+  width: 100%;
+  max-width: 400px;
+  
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); /* Sombra suave */
+  text-align: center;
+}
+
+.glass-box h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #fff; /* Título en blanco para resaltar sobre el vidrio */
+  font-size: 2rem;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Sombra al texto para leerse mejor */
+}
+
+.glass-input {
+  width: 100%;
+  padding: 14px 20px;
+  margin-top: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 30px;
+  
+  /* Fondo blanco semi-opaco para que las letras oscuras se lean bien */
+  background: rgba(255, 255, 255, 0.85); 
+  color: #333; /* Texto oscuro */
+  
+  font-size: 1rem;
+  font-weight: 500;
+  box-sizing: border-box;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.glass-input::placeholder {
+  color: #666;
+}
+
+.glass-input:focus {
+  background: #ffffff;
+  border-color: #fff;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+}
+
+/* Estilo para el SELECT de género */
+select.glass-input {
+  cursor: pointer;
+}
+
+.glass-btn {
+  margin-top: 25px;
+  width: 100%;
+  padding: 14px;
+  background: #ffca28; /* Amarillo que contrasta bien */
+  color: #333;
+  border: none;
+  border-radius: 30px;
+  font-size: 16px;
+  cursor: pointer;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: transform 0.2s, background 0.2s;
+  box-shadow: 0 4px 15px rgba(255, 202, 40, 0.4);
+}
+
+.glass-btn:hover {
+  background: #ffd54f;
+  transform: translateY(-2px);
+}
+
+.glass-btn:active {
+  transform: scale(0.98);
+}
+
+/* Enlaces del pie (Login/Register) */
+.glass-footer {
+  margin-top: 20px;
+  color: #fff;
+  font-size: 0.9rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5); /* Sombra para leerse sobre cualquier fondo */
+}
+
+.glass-footer a {
+  color: #ffca28;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.glass-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Mensajes de error en rojo */
+.error-msg {
+  color: #ff6b6b;
+  background: rgba(0,0,0,0.6); /* Fondo oscuro opcional para resaltar el error */
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin-top: 5px;
+  text-align: left;
+  display: inline-block;
+  font-weight: bold;
+}

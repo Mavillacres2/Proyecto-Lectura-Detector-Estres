@@ -1,0 +1,363 @@
+/* src/components/EmotionDetector.css */
+
+.emotion-page {
+  max-width: 1200px; /* Aumenté un poco para pantallas grandes */
+  margin: 0 auto;    /* Centrado sin margen superior fijo excesivo */
+  padding: 20px;
+  background-color: #f3eef9; /* fondo lila claro */
+  box-sizing: border-box;
+  min-height: 100vh;
+}
+
+/* ---------- Sección 1: descripción + features ---------- */
+
+.emotion-header {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 20px 30px 30px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  margin-bottom: 30px;
+}
+
+.emotion-description {
+  text-align: center;
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 20px;
+}
+
+.emotion-features {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.feature-card {
+  flex: 1;
+  min-width: 220px;
+  background: #faf7ff;
+  border-radius: 10px;
+  padding: 15px 18px;
+  text-align: center;
+}
+
+.feature-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.feature-card h3 {
+  margin: 5px 0 8px;
+  font-size: 16px;
+  color: #333;
+}
+
+.feature-card p {
+  font-size: 13px;
+  color: #666;
+}
+
+/* ---------- Sección 2: video + panel emociones ---------- */
+
+.emotion-main {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 25px;
+  flex-wrap: wrap; /* Permite que bajen los elementos en móvil */
+}
+
+.video-card {
+  flex: 3;
+  /* Ajuste responsive: min-width flexible para no romper pantallas pequeñas */
+  min-width: 300px; 
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.video-wrapper {
+  position: relative;
+  width: 100%;
+  background: #bdbdbd;
+  border-radius: 8px;
+  overflow: hidden;
+  /* Truco para mantener proporción si es necesario, o dejar auto */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.emotion-video {
+  width: 100%;
+  height: auto; /* Importante para responsive */
+  display: block;
+}
+
+.emotion-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.video-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #333;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* stats debajo del video */
+.camera-stats {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 13px;
+  color: #444;
+}
+
+/* Panel emociones a la derecha */
+
+.emotion-panel {
+  flex: 2;
+  min-width: 260px;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 15px 18px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.emotion-panel h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 15px;
+  color: #333;
+}
+
+.emotion-json {
+  max-height: 260px;
+  overflow: auto;
+  font-size: 13px;
+  background: #f0ebff;
+  border-radius: 6px;
+  padding: 12px;
+  color: #2a1d55;
+  border: 1px solid #d9caff;
+}
+
+.emotion-json pre {
+  color: #2a1d55;
+  font-weight: 500;
+  /* Ajuste para que el texto no se salga en móviles */
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.emotion-json pre .high {
+  color: #d62828;
+  font-weight: 700;
+}
+
+
+/* ---------- Sección 3: botón ---------- */
+
+.emotion-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.btn-questionary {
+  padding: 12px 30px;
+  border-radius: 8px;
+  border: none;
+  background-color: #f2b632;
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: background 0.2s, transform 0.1s;
+  width: 100%;
+  max-width: 300px;
+}
+
+.btn-questionary:hover {
+  background-color: #d89c22;
+  transform: translateY(-1px);
+}
+
+/* Contenedor principal del cuestionario */
+.questionnaire-page {
+  min-height: 100vh;
+  background: #f5f2ff;
+  padding: 2rem; /* Padding reducido un poco para tablets */
+  box-sizing: border-box;
+}
+
+/* Encabezado */
+.questionnaire-header h1 {
+  color: #2d254d;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+/* Grid de cuestionario + cámara */
+.questionnaire-grid {
+  display: grid;
+  /* Por defecto escritorio: 2 columnas */
+  grid-template-columns: 2fr 1.5fr; 
+  gap: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Tarjeta del cuestionario */
+.card-pss {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  color: #333333;
+}
+
+.card-camera {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  height: fit-content; /* Para que no se estire innecesariamente */
+}
+
+/* Texto "Durante el último mes..." */
+.pss-subtitle {
+  font-size: 0.9rem;
+  color: #555;
+  margin-bottom: 0.8rem;
+}
+
+/* Cada pregunta */
+.pss-questions {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.pss-question-row {
+  margin-bottom: 0.9rem;
+}
+
+.pss-question-text {
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+  color: #333;
+  line-height: 1.4;
+}
+
+/* Opciones (Nunca, Casi nunca, etc.) */
+.pss-options {
+  display: flex;
+  flex-direction: column; /* Mejor en columna para asegurar click fácil */
+  gap: 10px;
+}
+
+.pss-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  color: #333;
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.pss-option:hover {
+  background-color: #f9f9f9;
+}
+
+.pss-option input[type="radio"] {
+  cursor: pointer;
+  transform: scale(1.2); /* Radio button un poco más grande */
+}
+
+.pss-option span {
+  cursor: pointer;
+}
+
+/* Botón Finalizar */
+.btn-finish {
+  margin-top: 1.5rem;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  background: #4b3bbd;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  font-size: 1rem;
+}
+
+.btn-finish:hover {
+  opacity: 0.9;
+}
+
+/* ========================================= */
+/* 📱 MEDIA QUERIES PARA RESPONSIVE (NUEVO) */
+/* ========================================= */
+
+/* Tablets y Laptops pequeñas (< 960px) */
+@media (max-width: 960px) {
+  .questionnaire-grid {
+    grid-template-columns: 1fr; /* Pasa a una sola columna */
+  }
+
+  /* Opcional: Si quieres que la cámara aparezca ANTES de las preguntas en el móvil */
+  /* .card-camera { order: -1; margin-bottom: 20px; } */
+  
+  .emotion-main {
+    flex-direction: column;
+  }
+  
+  .video-card, .emotion-panel {
+    width: 100%;
+    min-width: 0; /* Permite achicarse */
+  }
+}
+
+/* Celulares (< 600px) */
+@media (max-width: 600px) {
+  .emotion-page, .questionnaire-page {
+    padding: 15px; /* Menos padding lateral */
+  }
+
+  .emotion-header {
+    padding: 15px;
+  }
+
+  .video-card, .emotion-panel, .card-pss, .card-camera {
+    padding: 15px; /* Tarjetas más compactas */
+  }
+
+  .feature-card {
+    min-width: 100%; /* Features ocupan todo el ancho */
+  }
+
+  .pss-question-text {
+    font-size: 1rem;
+  }
+  
+  .btn-questionary, .btn-finish {
+    width: 100%;
+    max-width: none;
+  }
+}

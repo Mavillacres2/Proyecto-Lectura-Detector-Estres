@@ -1,0 +1,98 @@
+/* src/styles/Home.css */
+
+.home-container {
+  width: 100%;
+  min-height: 100vh;
+  background-image: url("/bg-stress.jpg"); /* Asegúrate de tener esta imagen */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  flex-direction: column;
+}
+
+.navbar {
+  width: 100%;
+  min-height: 70px;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 40px;
+  box-sizing: border-box;
+}
+
+.logo {
+  font-size: 28px;
+  font-weight: bold;
+  color: #ffcc00;
+}
+
+.nav-links {
+  display: flex;
+  gap: 25px;
+}
+
+.nav-links a {
+  color: white;
+  font-size: 16px;
+  text-decoration: none;
+  transition: 0.2s;
+}
+
+.nav-links a:hover {
+  color: #ffcc00;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.content h2 {
+  font-size: 32px;
+  font-weight: 400;
+  margin-bottom: 0;
+}
+
+.content h1 {
+  font-size: 64px;
+  margin-top: 10px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.btn-start {
+  margin-top: 40px;
+  font-size: 20px;
+  background: #ffcc00;
+  border: none;
+  padding: 18px 60px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: 0.3s;
+  font-weight: bold;
+}
+
+.btn-start:hover {
+  background: #e6b800;
+  transform: scale(1.05);
+}
+
+/* 📱 RESPONSIVE */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 15px 20px;
+    flex-direction: column;
+    gap: 15px;
+  }
+  .content h2 { font-size: 20px; }
+  .content h1 { font-size: 40px; }
+  .btn-start { width: 100%; max-width: 300px; padding: 15px; font-size: 18px; }
+}
