@@ -1,7 +1,10 @@
 // src/services/authService.ts
 import axios from "axios";
 
-const API_URL = "http://127.0.0.1:8000/api/auth"; // o localhost, pero que coincida con CORS
+// Si existe la variable de entorno (Vercel), la usa. Si no, usa localhost.
+const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const API_URL = `${BASE_URL}/api/auth`;
+//const API_URL = "http://127.0.0.1:8000/api/auth"; // o localhost, pero que coincida con CORS
 
 export const registerUser = (data: {
   full_name: string;

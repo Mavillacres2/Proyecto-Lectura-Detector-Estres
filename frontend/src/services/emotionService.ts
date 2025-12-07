@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const API_URL = "http://127.0.0.1:8000/api/emotions";
+const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const API_URL = `${BASE_URL}/api/emotions`;
+
+//const API_URL = "http://127.0.0.1:8000/api/emotions";
 
 export const sendEmotionHTTP = async (payload: any) => {
   try {
