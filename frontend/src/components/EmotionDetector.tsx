@@ -83,6 +83,22 @@ export const EmotionDetector: React.FC = () => {
     }
   }, [step]);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    const logInterval = setInterval(() => {
+      if (video) {
+        console.log("estado video:", {
+          readyState: video.readyState,
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight,
+          paused: video.paused,
+        });
+      }
+    }, 2000);
+
+    return () => clearInterval(logInterval);
+  }, []);
+
 
   /** 1. Cargar modelos con Fallback a CPU (Solución WebGL) */
   const loadModels = async () => {
@@ -118,42 +134,42 @@ export const EmotionDetector: React.FC = () => {
 
   /** 2. Iniciar cámara con baja resolución (320x240) para velocidad */
   const startCamera = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 320 },
-        height: { ideal: 240 },
-        facingMode: "user",
-        frameRate: { ideal: 15, max: 24 },
-      },
-      audio: false,
-    });
-
-    const video = videoRef.current;
-    if (!video) return;
-
-    video.srcObject = stream;
-
-    // 👉 MUY IMPORTANTE: enganchar el handler ANTES de que se disparen los metadatos
-    video.onloadedmetadata = () => {
-      console.log("📸 loadedmetadata:", video.videoWidth, video.videoHeight);
-
-      setResolution({
-        width: video.videoWidth,
-        height: video.videoHeight,
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 320 },
+          height: { ideal: 240 },
+          facingMode: "user",
+          frameRate: { ideal: 15, max: 24 },
+        },
+        audio: false,
       });
 
-      // Intentar reproducir
-      video
-        .play()
-        .then(() => console.log("▶️ Video reproduciéndose"))
-        .catch((e) => console.error("Error al reproducir video:", e));
-    };
+      const video = videoRef.current;
+      if (!video) return;
 
-  } catch (err) {
-    console.error("Error iniciando cámara:", err);
-  }
-};
+      video.srcObject = stream;
+
+      // 👉 MUY IMPORTANTE: enganchar el handler ANTES de que se disparen los metadatos
+      video.onloadedmetadata = () => {
+        console.log("📸 loadedmetadata:", video.videoWidth, video.videoHeight);
+
+        setResolution({
+          width: video.videoWidth,
+          height: video.videoHeight,
+        });
+
+        // Intentar reproducir
+        video
+          .play()
+          .then(() => console.log("▶️ Video reproduciéndose"))
+          .catch((e) => console.error("Error al reproducir video:", e));
+      };
+
+    } catch (err) {
+      console.error("Error iniciando cámara:", err);
+    }
+  };
 
 
   /** ⏱️ Timer del cuestionario */
