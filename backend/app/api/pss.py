@@ -5,10 +5,11 @@ from sqlalchemy.orm import Session
 from typing import Dict
 from datetime import datetime
 
+# Usamos Postgres solo para LEER el usuario (rápido), y Mongo para TODO lo demás
 from app.database.connection import SessionLocal
 from app.database.mongo import mongo_db
 from app.models.user import User
-from app.models.stress_evaluation import StressEvaluation
+# from app.models.stress_evaluation import StressEvaluation  <-- YA NO LO USAMOS PARA ESCRIBIR
 
 router = APIRouter(prefix="/pss", tags=["pss"])
 
@@ -40,13 +41,13 @@ STRESS_EMOTIONS = {"angry", "disgusted", "fearful"}
 
 
 def compute_emotion_stats(session_id: str):
+    # 1. Buscamos las emociones crudas en Mongo
     docs = list(mongo_db["emotions"].find({"session_id": session_id}))
 
     if not docs:
-        raise HTTPException(
-            status_code=400,
-            detail="No se encontraron emociones registradas para esta sesión.",
-        )
+        # Si no hay datos, retornamos ceros por defecto para no romper el flujo
+        keys = ["angry", "disgusted", "fearful", "happy", "sad", "surprised", "neutral"]
+        return {k: 0.0 for k in keys}, 0.0
 
     keys = list(docs[0]["emotions"].keys())
     totals: Dict[str, float] = {k: 0.0 for k in keys}
@@ -65,7 +66,7 @@ def compute_emotion_stats(session_id: str):
             stress_frames += 1
 
     averages = {k: totals[k] / total_frames for k in keys}
-    negative_ratio = stress_frames / total_frames
+    negative_ratio = stress_frames / total_frames if total_frames > 0 else 0
 
     return averages, negative_ratio
 
@@ -82,38 +83,41 @@ def level_from_ratio(r: float) -> str:
 @router.post("/submit")
 def submit_pss(payload: PSSSubmitPayload, db: Session = Depends(get_db)):
 
+    # 1. Obtenemos datos demográficos del usuario (Postgres - Lectura Rápida)
     user = db.query(User).filter(User.id == payload.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
+    # 2. Cálculos matemáticos
     pss_level = categorize_pss(payload.pss_score)
-
     averages, negative_ratio = compute_emotion_stats(payload.session_id)
     emotion_level = level_from_ratio(negative_ratio)
 
-    # Guardar en PostgreSQL para tu dataset
-    evaluation = StressEvaluation(
-        user_id=user.id,
-        session_id=payload.session_id,
-        age=user.age,
-        gender=user.gender,
-        anger_avg=averages.get("angry", 0.0),
-        fear_avg=averages.get("fearful", 0.0),
-        sadness_avg=averages.get("sad", 0.0),
-        happiness_avg=averages.get("happy", 0.0),
-        disgust_avg=averages.get("disgusted", 0.0),
-        surprise_avg=averages.get("surprised", 0.0),
-        neutral_avg=averages.get("neutral", 0.0),
-        negative_ratio=negative_ratio,
-        pss_score=payload.pss_score,
-        pss_level=pss_level,
-        emotion_level=emotion_level,
-        created_at=datetime.utcnow()
-    )
-    db.add(evaluation)
-    db.commit()
+    # 3. GUARDAR RESULTADO EN MONGODB (En lugar de Postgres)
+    # Creamos un diccionario con todos los datos
+    evaluation_doc = {
+        "user_id": user.id,
+        "session_id": payload.session_id,
+        "age": user.age,
+        "gender": user.gender,
+        "anger_avg": averages.get("angry", 0.0),
+        "fear_avg": averages.get("fearful", 0.0),
+        "sadness_avg": averages.get("sad", 0.0),
+        "happiness_avg": averages.get("happy", 0.0),
+        "disgust_avg": averages.get("disgusted", 0.0),
+        "surprise_avg": averages.get("surprised", 0.0),
+        "neutral_avg": averages.get("neutral", 0.0),
+        "negative_ratio": negative_ratio,
+        "pss_score": payload.pss_score,
+        "pss_level": pss_level,
+        "emotion_level": emotion_level,
+        "created_at": datetime.utcnow()
+    }
 
-    # 👈 ESTO es lo que usa el frontend
+    # Insertamos en una colección llamada 'stress_evaluations'
+    mongo_db["stress_evaluations"].insert_one(evaluation_doc)
+
+    # 4. Retornar al Frontend (Esto sigue igual)
     return {
         "pss_score": payload.pss_score,
         "pss_level": pss_level,
