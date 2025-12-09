@@ -324,7 +324,7 @@ export const EmotionDetector: React.FC = () => {
   const renderCameraPanel = () => (
     <div className="video-card">
       <div className="video-wrapper">
-        <video ref={videoRef} className="emotion-video" muted playsInline />
+        <video ref={videoRef} className="emotion-video" autoPlay muted playsInline />
         <canvas ref={canvasRef} className="emotion-canvas" />
         {!loaded && <div className="video-placeholder">Cargando Modelos IA...</div>}
         {/* ⚠️ ALERTA DE NO ROSTRO ⚠️ */}
