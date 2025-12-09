@@ -83,21 +83,36 @@ export const EmotionDetector: React.FC = () => {
     }
   }, [step]);
 
-  /** 1. Cargar modelos optimizados (TinyFaceDetector) */
+
+  /** 1. Cargar modelos con Fallback a CPU (Solución WebGL) */
   const loadModels = async () => {
     try {
+      // Intentamos cargar modelos
       await Promise.all([
-        // Usamos TinyFaceDetector que es mucho más rápido para web/móvil
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
         faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
       ]);
+
       if (isMountedRef.current) {
-        setLoaded(true);
-        console.log("✅ Modelos cargados (Tiny Version)");
+          setLoaded(true);
+          console.log("✅ Modelos cargados");
       }
     } catch (err) {
-      console.error("Error cargando modelos:", err);
+      console.error("⚠️ Error WebGL/Carga, intentando modo CPU...", err);
+      // Si falla, forzamos el uso de CPU (más lento pero compatible)
+      await faceapi.tf.setBackend('cpu');
+      await faceapi.tf.ready();
+      
+      // Reintentamos la carga
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+      ]);
+      
+      if (isMountedRef.current) setLoaded(true);
+      console.log("✅ Modelos cargados (Modo CPU)");
     }
   };
 
