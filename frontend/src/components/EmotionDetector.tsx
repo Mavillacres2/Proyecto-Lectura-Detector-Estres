@@ -194,7 +194,6 @@ export const EmotionDetector: React.FC = () => {
     let lastFpsTime = performance.now();
 
     const processVideo = async () => {
-      // Si el componente se desmontó, paramos el loop
       if (!isActive || !isMountedRef.current) return;
 
       if (!videoRef.current || !canvasRef.current) {
@@ -203,16 +202,17 @@ export const EmotionDetector: React.FC = () => {
       }
 
       const now = performance.now();
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
 
-      // 1. LIMITADOR DE FPS DE DETECCIÓN (Máx 10 veces por segundo = 100ms)
-      // Esto evita que la CPU se queme intentando procesar 60 frames
+      // 🔹 Limitador de FPS (máx ~10 detecciones por segundo)
       if (now - lastDetection < 100) {
         requestAnimationFrame(processVideo);
         return;
       }
       lastDetection = now;
 
-      // Calcular FPS reales para mostrar en pantalla
+      // 🔹 Cálculo de FPS para mostrar
       frameCount++;
       if (now - lastFpsTime >= 1000) {
         setFps(Math.round((frameCount * 1000) / (now - lastFpsTime)));
@@ -220,27 +220,36 @@ export const EmotionDetector: React.FC = () => {
         lastFpsTime = now;
       }
 
-      const video = videoRef.current;
-
-      // Asegurarse de que el video esté reproduciéndose y tenga dimensiones válidas
+      // Asegurarse de que el video esté listo
       if (video.ended || video.videoWidth === 0) {
         requestAnimationFrame(processVideo);
         return;
       }
 
-      // Si está pausado → intenta reproducirlo
       if (video.paused) {
         video.play().catch(() => { });
       }
 
+      // 👇 Ajustar tamaño del canvas
+      const displaySize = { width: video.videoWidth, height: video.videoHeight };
+      if (canvas.width !== displaySize.width) canvas.width = displaySize.width;
+      if (canvas.height !== displaySize.height) canvas.height = displaySize.height;
 
-      // 2. DETECCIÓN LIGERA
-      // inputSize: 160 es muy rápido. scoreThreshold: 0.4 filtra falsos positivos.
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        console.warn("⚠️ ctx nulo, no se puede dibujar en el canvas");
+        requestAnimationFrame(processVideo);
+        return;
+      }
+
+      // 1️⃣ SIEMPRE dibuja el frame de la cámara primero
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // 2️⃣ Luego intenta la detección (si falla, al menos se ve la cámara)
       const options = new faceapi.TinyFaceDetectorOptions({
         inputSize: 320,
-        scoreThreshold: 0.15,  // mucho más permisivo
+        scoreThreshold: 0.15,
       });
-
 
       try {
         const detection = await faceapi
@@ -248,61 +257,50 @@ export const EmotionDetector: React.FC = () => {
           .withFaceLandmarks()
           .withFaceExpressions();
 
-        // Dibujar en canvas
-        const canvas = canvasRef.current;
-        const displaySize = { width: video.videoWidth, height: video.videoHeight };
+        if (detection) {
+          lastFaceDetectedRef.current = Date.now();
+          setIsFaceDetected(true);
 
-        if (canvas.width !== displaySize.width) canvas.width = displaySize.width;
-        if (canvas.height !== displaySize.height) canvas.height = displaySize.height;
+          const resized = faceapi.resizeResults(detection, displaySize);
 
-        const ctx = canvas.getContext("2d");
+          // Cajas encima del frame
+          faceapi.draw.drawDetections(canvas, resized);
+          // faceapi.draw.drawFaceLandmarks(canvas, resized);
 
-        if (ctx) {
-          // 1️⃣ Dibujar el frame de la cámara en el canvas
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const expressions = resized.expressions;
 
-          if (detection) {
-            lastFaceDetectedRef.current = Date.now();
-            setIsFaceDetected(true);
+          // Actualizar UI máx 2 veces por segundo
+          if (now - lastUiUpdate > 500) {
+            setSmoothedEmotion(expressions);
+            lastUiUpdate = now;
+          }
 
-            const resized = faceapi.resizeResults(detection, displaySize);
-
-            // 2️⃣ Encima del frame, dibujar cajas y landmarks
-            faceapi.draw.drawDetections(canvas, resized);
-            // faceapi.draw.drawFaceLandmarks(canvas, resized);
-
-            const expressions = resized.expressions;
-
-            if (now - lastUiUpdate > 500) {
-              setSmoothedEmotion(expressions);
-              lastUiUpdate = now;
-            }
-
-            if (isRecordingRef.current && now - lastSend > 500) {
-              const payload = {
-                user_id: Number(userId) || 0,
-                session_id: sessionId,
-                emotions: expressions,
-                timestamp: Date.now() / 1000,
-              };
-              sendEmotionHTTP(payload).catch(console.error);
-              sendWS(payload);
-              lastSend = now;
-            }
-          } else {
-            if (Date.now() - lastFaceDetectedRef.current > 2000) {
-              setIsFaceDetected(false);
-            }
+          // Enviar al backend sólo si estamos grabando
+          if (isRecordingRef.current && now - lastSend > 500) {
+            const payload = {
+              user_id: Number(userId) || 0,
+              session_id: sessionId,
+              emotions: expressions,
+              timestamp: Date.now() / 1000,
+            };
+            sendEmotionHTTP(payload).catch(console.error);
+            sendWS(payload);
+            lastSend = now;
+          }
+        } else {
+          // No hay detección
+          if (Date.now() - lastFaceDetectedRef.current > 2000) {
+            setIsFaceDetected(false);
           }
         }
-
       } catch (error) {
-        console.error("Error en ciclo de detección:", error);
+        console.error("❌ Error en ciclo de detección:", error);
+        // Si hay error, por lo menos ya dibujamos la cámara arriba
       }
 
-      // Solicitar el siguiente frame al navegador
       requestAnimationFrame(processVideo);
     };
+
 
     // Iniciar
     startCamera().then(() => {
