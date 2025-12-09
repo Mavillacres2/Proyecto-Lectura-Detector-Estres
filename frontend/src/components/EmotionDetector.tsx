@@ -8,8 +8,9 @@ import { useNavigate } from "react-router-dom";
 import "../styles/EmotionDetector.css";
 
 const MODEL_URL = "/models";
-const QUESTION_TIME = 25;
+const QUESTION_TIME = 25; // ⏱️ Tiempo mínimo por pregunta en segundos
 
+// Definimos los pasos del flujo
 type Step = "intro" | "instructions" | "questionnaire" | "completed";
 
 // 🔹 Preguntas PSS-10
@@ -35,135 +36,97 @@ const scaleOptions = [
 ];
 
 export const EmotionDetector: React.FC = () => {
+  // Refs para video y detección
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const detectionIntervalRef = useRef<number | null>(null);
 
-  // 🔥 Control de grabación y estado del componente
+  // 🔥 NUEVO: Ref para controlar cuándo guardar datos
+  // Usamos ref en lugar de state porque necesitamos acceder al valor actualizado dentro del setInterval
   const isRecordingRef = useRef(false);
-  const isMountedRef = useRef(true);
 
-  // 🕒 Control de "Rostro Perdido"
-  const lastFaceDetectedRef = useRef<number>(Date.now()); // Última vez que vimos una cara
-  const [isFaceDetected, setIsFaceDetected] = useState(true); // Estado visual para la alerta
-
+  // Estados de IA y Cámara
   const [loaded, setLoaded] = useState(false);
-  const [smoothedEmotion, setSmoothedEmotion] = useState<any>(null); // Solo para visualización
-
+  const [smoothBuffer, setSmoothBuffer] = useState<any[]>([]);
+  const [smoothedEmotion, setSmoothedEmotion] = useState<any>(null);
   const [fps, setFps] = useState(0);
+  const [fpsBuffer, setFpsBuffer] = useState<number[]>([]);
   const [resolution, setResolution] = useState({ width: 0, height: 0 });
 
+  // Estados de Flujo y Usuario
   const [step, setStep] = useState<Step>("intro");
   const [sessionId] = useState(() => crypto.randomUUID());
   const [userId, setUserId] = useState<number | null>(null);
 
+  // Estados del Cuestionario
   const [currentIndex, setCurrentIndex] = useState(0);
   const [seconds, setSeconds] = useState(0);
   const [answers, setAnswers] = useState<number[]>(Array(QUESTIONS.length).fill(-1));
   const [resultsData, setResultsData] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
 
-
   const navigate = useNavigate();
 
-  // Control del ciclo de vida del componente
+  // Cargar ID de usuario al montar
   useEffect(() => {
-    isMountedRef.current = true;
     const stored = localStorage.getItem("user_id");
     if (stored) setUserId(Number(stored));
-    return () => { isMountedRef.current = false; };
   }, []);
 
-  // Sincronizar grabación con el paso actual
+  // 🔥 NUEVO: Sincronizar el ref de grabación con el paso actual
   useEffect(() => {
+    // Solo permitimos enviar datos si estamos en la fase del cuestionario
     if (step === "questionnaire") {
       isRecordingRef.current = true;
-      console.log("🔴 REC: Dataset activo");
+      console.log("🔴 GRABACIÓN DE DATOS INICIADA (Dataset activo)");
     } else {
       isRecordingRef.current = false;
+      console.log("⏸️ GRABACIÓN PAUSADA (Modo prueba de cámara)");
     }
   }, [step]);
 
-  useEffect(() => {
-    const video = videoRef.current;
-    const logInterval = setInterval(() => {
-      if (video) {
-        console.log("estado video:", {
-          readyState: video.readyState,
-          videoWidth: video.videoWidth,
-          videoHeight: video.videoHeight,
-          paused: video.paused,
-        });
-      }
-    }, 2000);
-
-    return () => clearInterval(logInterval);
-  }, []);
-
-
-  /** 1. Cargar modelos con Fallback a CPU (Solución WebGL) */
+  /** 1. Cargar modelos de FaceAPI */
   const loadModels = async () => {
     try {
-      // Intentamos cargar modelos
       await Promise.all([
+        // CAMBIO IMPORTANTE: Usamos el modelo Tiny
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL), // Ojo: a veces se necesita el "tiny" landmark también, pero prueba con este primero
         faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+        /*
+                faceapi.loadSsdMobilenetv1Model(MODEL_URL),
+                faceapi.loadFaceLandmarkModel(MODEL_URL),
+                faceapi.loadFaceExpressionModel(MODEL_URL),
+                */
       ]);
-
-      if (isMountedRef.current) {
-        setLoaded(true);
-        console.log("✅ Modelos cargados");
-      }
+      setLoaded(true);
+      console.log("✅ Modelos cargados (Tiny Version)");
     } catch (err) {
-      console.error("⚠️ Error WebGL/Carga, intentando modo CPU...", err);
-      // Si falla, forzamos el uso de CPU (más lento pero compatible)
-      await faceapi.tf.setBackend('cpu');
-      await faceapi.tf.ready();
-
-      // Reintentamos la carga
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
-      ]);
-
-      if (isMountedRef.current) setLoaded(true);
-      console.log("✅ Modelos cargados (Modo CPU)");
+      console.error("Error cargando modelos:", err);
     }
   };
 
-  /** 2. Iniciar cámara con baja resolución (320x240) para velocidad */
+  /** 2. Iniciar cámara */
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 320 },
-          height: { ideal: 240 },
+          width: { ideal: 640 },
+          height: { ideal: 480 },
           facingMode: "user",
-          frameRate: { ideal: 15, max: 24 },
         },
-        audio: false,
       });
 
-      const video = videoRef.current;
-      if (!video) return;
+      if (!videoRef.current) return;
+      videoRef.current.srcObject = stream;
 
-      video.srcObject = stream;
-
-      // 👉 MUY IMPORTANTE: enganchar el handler ANTES de que se disparen los metadatos
-      video.onloadedmetadata = () => {
-        console.log("📸 loadedmetadata:", video.videoWidth, video.videoHeight);
-
+      videoRef.current.onloadedmetadata = () => {
+        if (!videoRef.current) return;
         setResolution({
-          width: video.videoWidth,
-          height: video.videoHeight,
+          width: videoRef.current.videoWidth,
+          height: videoRef.current.videoHeight
         });
-
-        // Intentar reproducir
-        video
-          .play()
-          .then(() => console.log("▶️ Video reproduciéndose"))
-          .catch((e) => console.error("Error al reproducir video:", e));
+        videoRef.current.play();
       };
 
     } catch (err) {
@@ -171,188 +134,308 @@ export const EmotionDetector: React.FC = () => {
     }
   };
 
-
-  /** ⏱️ Timer del cuestionario */
+  /** ⏱️ Lógica del Timer */
   useEffect(() => {
     if (step !== "questionnaire") return;
+
     setSeconds(0);
     const intervalId = window.setInterval(() => {
-      setSeconds((prev) => (prev >= QUESTION_TIME ? prev : prev + 1));
+      setSeconds((prev) => {
+        if (prev >= QUESTION_TIME) return prev;
+        return prev + 1;
+      });
     }, 1000);
+
     return () => clearInterval(intervalId);
   }, [currentIndex, step]);
 
-  /** 🔄 LOOP DE DETECCIÓN INTELIGENTE (SIN setInterval) */
+  /** Lógica de FPS */
   useEffect(() => {
     if (!loaded) return;
-
-    let isActive = true;
-    let lastDetection = 0;
-    let lastSend = 0;
-    let lastUiUpdate = 0;
+    let lastFrameTime = performance.now();
     let frameCount = 0;
-    let lastFpsTime = performance.now();
+    let animationId: number;
 
-    const processVideo = async () => {
-      if (!isActive || !isMountedRef.current) return;
+    const updateFPS = () => {
+      frameCount++;
+      animationId = requestAnimationFrame(updateFPS);
+    };
+    updateFPS();
 
-      if (!videoRef.current || !canvasRef.current) {
-        requestAnimationFrame(processVideo);
+    const intervalId = window.setInterval(() => {
+      const now = performance.now();
+      const delta = now - lastFrameTime;
+      const rawFps = delta > 0 ? Math.round((frameCount / delta) * 1000) : 0;
+      frameCount = 0;
+      lastFrameTime = now;
+      setFpsBuffer((prev) => {
+        const updated = [...prev, rawFps];
+        if (updated.length > 10) updated.shift();
+        return updated;
+      });
+    }, 1000);
+
+    return () => {
+      window.cancelAnimationFrame(animationId);
+      clearInterval(intervalId);
+    };
+  }, [loaded]);
+
+  useEffect(() => {
+    if (fpsBuffer.length === 0) return;
+    const avg = fpsBuffer.reduce((sum, value) => sum + value, 0) / fpsBuffer.length;
+    setFps(Math.round(avg));
+  }, [fpsBuffer]);
+
+  const computeSmoothEmotion = (expressions: any) => {
+    setSmoothBuffer((prev) => {
+      const updated = [...prev, expressions];
+      if (updated.length > 5) updated.shift();
+      return updated;
+    });
+  };
+
+  useEffect(() => {
+    if (smoothBuffer.length === 0) return;
+    const keys = Object.keys(smoothBuffer[0]);
+    const avg: any = {};
+    keys.forEach((k) => {
+      avg[k] = smoothBuffer.reduce((sum, e) => sum + e[k], 0) / smoothBuffer.length;
+    });
+    setSmoothedEmotion(avg);
+  }, [smoothBuffer]);
+
+  /** Loop de detección de Rostros */
+  /* const runDetectionLoop = () => {
+     const intervalId = window.setInterval(async () => {
+       if (!videoRef.current || !loaded) return;
+ 
+       // Opciones para mejorar rendimiento si es necesario (minConfidence)
+       const detections = await faceapi
+         .detectSingleFace(videoRef.current, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+         .withFaceLandmarks()
+         .withFaceExpressions();
+ 
+       const canvas = canvasRef.current;
+       const video = videoRef.current;
+       if (!canvas || !video) return;
+ 
+       canvas.width = video.videoWidth;
+       canvas.height = video.videoHeight;
+       const displaySize = { width: video.videoWidth, height: video.videoHeight };
+       faceapi.matchDimensions(canvas, displaySize);
+       const ctx = canvas.getContext("2d");
+       if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+ 
+       if (!detections) return;
+       const resized = faceapi.resizeResults(detections, displaySize);
+       faceapi.draw.drawDetections(canvas, resized);
+       faceapi.draw.drawFaceLandmarks(canvas, resized);
+ 
+       if (resized.expressions) {
+         // Siempre calculamos el promedio para mostrarlo en pantalla (Feedback visual)
+         computeSmoothEmotion(resized.expressions);
+         
+         // 🔥 LÓGICA CONDICIONAL DE ENVÍO
+         // Solo enviamos al backend si el Ref indica que estamos grabando (Cuestionario activo)
+         if (isRecordingRef.current) {
+             const payload = {
+               user_id: Number(userId) || 0,
+               session_id: sessionId,
+               emotions: resized.expressions,
+               timestamp: Date.now() / 1000,
+             };
+             
+             // Enviamos datos al backend y WS
+             sendEmotionHTTP(payload);
+             sendWS(payload);
+         }
+       }
+     }, 150); // Loop cada 150ms
+ 
+     detectionIntervalRef.current = intervalId;
+   };*/
+
+  /** Loop de detección OPTIMIZADO */
+  const runDetectionLoop = () => {
+    // Marcamos como activo (usamos este ref solo como flag)
+    detectionIntervalRef.current = 1;
+
+    let lastDetection = 0; // último momento en el que hicimos detección
+
+    const detect = async () => {
+      // Si desmontaron el componente o apagamos el loop, salimos
+      if (!videoRef.current || !loaded || !detectionIntervalRef.current) return;
+
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+
+      if (!canvas || !video) {
+        requestAnimationFrame(detect);
+        return;
+      }
+
+      // Asegurarse de que el video tenga datos
+      if (video.readyState < 2 || video.videoWidth === 0) {
+        requestAnimationFrame(detect);
         return;
       }
 
       const now = performance.now();
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
 
-      // 🔹 Limitador de FPS (máx ~10 detecciones por segundo)
-      if (now - lastDetection < 100) {
-        requestAnimationFrame(processVideo);
+      // 🔹 LIMITAMOS la detección a máx ~8 veces por segundo (cada 120ms)
+      if (now - lastDetection < 120) {
+        requestAnimationFrame(detect);
         return;
       }
       lastDetection = now;
 
-      // 🔹 Cálculo de FPS para mostrar
-      frameCount++;
-      if (now - lastFpsTime >= 1000) {
-        setFps(Math.round((frameCount * 1000) / (now - lastFpsTime)));
-        frameCount = 0;
-        lastFpsTime = now;
-      }
-
-      // Asegurarse de que el video esté listo
-      if (video.ended || video.videoWidth === 0) {
-        requestAnimationFrame(processVideo);
-        return;
-      }
-
-      if (video.paused) {
-        video.play().catch(() => { });
-      }
-
-      // 👇 Ajustar tamaño del canvas
-      const displaySize = { width: video.videoWidth, height: video.videoHeight };
-      if (canvas.width !== displaySize.width) canvas.width = displaySize.width;
-      if (canvas.height !== displaySize.height) canvas.height = displaySize.height;
-
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        console.warn("⚠️ ctx nulo, no se puede dibujar en el canvas");
-        requestAnimationFrame(processVideo);
-        return;
-      }
-
-      // 1️⃣ SIEMPRE dibuja el frame de la cámara primero
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // 2️⃣ Luego intenta la detección (si falla, al menos se ve la cámara)
+      // Opciones ligeras del TinyFaceDetector
       const options = new faceapi.TinyFaceDetectorOptions({
-        inputSize: 320,
-        scoreThreshold: 0.15,
+        inputSize: 224,      // 160–320, 224 es buen equilibrio
+        scoreThreshold: 0.5, // ajusta si quieres más/menos sensibilidad
       });
 
       try {
-        const detection = await faceapi
+        const detections = await faceapi
           .detectSingleFace(video, options)
           .withFaceLandmarks()
           .withFaceExpressions();
 
-        if (detection) {
-          lastFaceDetectedRef.current = Date.now();
-          setIsFaceDetected(true);
+        // Ajustar canvas solo cuando cambian dimensiones
+        if (
+          canvas.width !== video.videoWidth ||
+          canvas.height !== video.videoHeight
+        ) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        }
 
-          const resized = faceapi.resizeResults(detection, displaySize);
+        const displaySize = {
+          width: video.videoWidth,
+          height: video.videoHeight,
+        };
+        faceapi.matchDimensions(canvas, displaySize);
 
-          // Cajas encima del frame
+        const ctx = canvas.getContext("2d");
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (detections) {
+          const resized = faceapi.resizeResults(detections, displaySize);
+
+          // Dibujamos cajas y landmarks
           faceapi.draw.drawDetections(canvas, resized);
-          // faceapi.draw.drawFaceLandmarks(canvas, resized);
+          faceapi.draw.drawFaceLandmarks(canvas, resized);
 
-          const expressions = resized.expressions;
+          if (resized.expressions) {
+            // Suavizado de emociones (para la UI)
+            computeSmoothEmotion(resized.expressions);
 
-          // Actualizar UI máx 2 veces por segundo
-          if (now - lastUiUpdate > 500) {
-            setSmoothedEmotion(expressions);
-            lastUiUpdate = now;
-          }
-
-          // Enviar al backend sólo si estamos grabando
-          if (isRecordingRef.current && now - lastSend > 500) {
-            const payload = {
-              user_id: Number(userId) || 0,
-              session_id: sessionId,
-              emotions: expressions,
-              timestamp: Date.now() / 1000,
-            };
-            sendEmotionHTTP(payload).catch(console.error);
-            sendWS(payload);
-            lastSend = now;
-          }
-        } else {
-          // No hay detección
-          if (Date.now() - lastFaceDetectedRef.current > 2000) {
-            setIsFaceDetected(false);
+            // 🔥 Enviar al backend SOLO si estamos grabando (cuestionario)
+            if (isRecordingRef.current) {
+              const payload = {
+                user_id: Number(userId) || 0,
+                session_id: sessionId,
+                emotions: resized.expressions,
+                timestamp: Date.now() / 1000,
+              };
+              sendEmotionHTTP(payload);
+              sendWS(payload);
+            }
           }
         }
-      } catch (error) {
-        console.error("❌ Error en ciclo de detección:", error);
-        // Si hay error, por lo menos ya dibujamos la cámara arriba
+      } catch (e) {
+        console.error("Error en loop de detección:", e);
+        // Si hay error, simplemente seguimos al siguiente frame
       }
 
-      requestAnimationFrame(processVideo);
+      // Pedimos el siguiente frame
+      requestAnimationFrame(detect);
     };
 
+    // Iniciamos el loop
+    detect();
+  };
 
-    // Iniciar
-    startCamera().then(() => {
-      processVideo();
-    });
 
-    // Cleanup al desmontar
-    return () => {
-      isActive = false;
-      if (videoRef.current && videoRef.current.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
-      }
-    };
-  }, [loaded]); // Solo reiniciar si 'loaded' cambia
-
-  // Carga inicial de modelos
+  // Carga inicial
   useEffect(() => { loadModels(); }, []);
 
+  // Reinicio de cámara al cambiar de paso o cargar modelos
+  useEffect(() => {
+    if (!loaded) return;
+
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
+    }
+
+    startCamera();
+    runDetectionLoop();
+
+    // Cleanup
+    return () => {
+      if (detectionIntervalRef.current) {
+        clearInterval(detectionIntervalRef.current);
+        detectionIntervalRef.current = null;
+      }
+      if (videoRef.current?.srcObject) {
+        (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, [loaded, step]);
 
   /** ======= LÓGICA DE RESPUESTAS Y ENVÍO ======= */
 
   const handleAnswerChange = (value: number) => {
-    setAnswers((prev) => { const u = [...prev]; u[currentIndex] = value; return u; });
+    setAnswers((prev) => {
+      const updated = [...prev];
+      updated[currentIndex] = value;
+      return updated;
+    });
   };
 
   const calculatePSSScore = () => {
     return answers.reduce((sum, val, idx) => {
       if (val < 0) return sum;
-      return sum + (QUESTIONS[idx].reverse ? (4 - val) : val);
+      if (QUESTIONS[idx].reverse) {
+        return sum + (4 - val);
+      }
+      return sum + val;
     }, 0);
   };
 
   const handleNextOrFinish = async () => {
     const isLastQuestion = currentIndex === QUESTIONS.length - 1;
-    if (!isLastQuestion) { setCurrentIndex((prev) => prev + 1); return; }
 
-    if (!userId) { alert("Usuario no identificado. Por favor inicia sesión."); return; }
+    if (!isLastQuestion) {
+      setCurrentIndex((prev) => prev + 1);
+      return;
+    }
+
+    if (!userId) {
+      alert("No se encontró el usuario. Inicia sesión nuevamente.");
+      return;
+    }
 
     setSubmitting(true);
-    isRecordingRef.current = false; // Detener grabación inmediatamente
+    // Dejamos de grabar inmediatamente al terminar
+    isRecordingRef.current = false;
+
+    const pss_score = calculatePSSScore();
 
     try {
       const res = await submitPSS({
         user_id: userId,
         session_id: sessionId,
-        pss_score: calculatePSSScore()
+        pss_score,
       });
+
       setResultsData(res.data);
       setStep("completed");
     } catch (err) {
       console.error(err);
-      alert("Error al enviar resultados. Inténtalo de nuevo.");
+      alert("Error al enviar el cuestionario. Inténtalo de nuevo.");
     } finally {
       setSubmitting(false);
     }
@@ -363,58 +446,21 @@ export const EmotionDetector: React.FC = () => {
     navigate("/results", { state: resultsData });
   };
 
-
   // Componente visual reutilizable para la cámara
   const renderCameraPanel = () => (
     <div className="video-card">
       <div className="video-wrapper">
-        {/* 👇 Video sólo como fuente, oculto */}
-        <video
-          ref={videoRef}
-          className="emotion-video"
-          muted
-          playsInline
-          autoPlay
-          style={{
-            position: "absolute",
-            width: "1px",
-            height: "1px",
-            opacity: 0,
-            pointerEvents: "none",
-          }}
-        />
-
-
-        {/* 👇 Lo que se muestra al usuario */}
+        <video ref={videoRef} className="emotion-video" muted playsInline />
         <canvas ref={canvasRef} className="emotion-canvas" />
-
-        {!loaded && (
-          <div className="video-placeholder">Cargando Modelos IA...</div>
-        )}
-
-        {loaded && !isFaceDetected && (
-          <div className="video-warning-overlay">
-            <div className="warning-icon">⚠️</div>
-            <div className="warning-text">Rostro no detectado</div>
-            <div className="warning-subtext">
-              Por favor, ubícate frente a la cámara y asegúrate de tener buena luz.
-            </div>
-          </div>
-        )}
+        {!loaded && <div className="video-placeholder">Cargando modelos...</div>}
       </div>
-
       <div className="camera-stats">
         <span>FPS: {fps}</span>
-        <span>
-          Res: {resolution.width}x{resolution.height}
-        </span>
-        {step === "questionnaire" && (
-          <span style={{ color: "red", fontWeight: "bold" }}>🔴 GRABANDO</span>
-        )}
+        <span>Res: {resolution.width} x {resolution.height}</span>
+        {step === "questionnaire" && <span style={{ color: "red", fontWeight: "bold" }}>🔴 REC</span>}
       </div>
     </div>
   );
-
 
   /** ========================================================
    * RENDERIZADO POR PASOS
@@ -424,26 +470,42 @@ export const EmotionDetector: React.FC = () => {
   if (step === "intro") {
     return (
       <div className="emotion-page">
+
         <section className="emotion-header">
           <p className="emotion-description">
-            Este sistema evalúa tu nivel de estrés analizando expresiones faciales y respuestas al cuestionario PSS-10.
-            Por favor, asegúrate de tener buena iluminación.
+            Este sistema te permite evaluar tu nivel de estrés de forma rápida y
+            sencilla mediante el análisis de tus expresiones faciales y un breve
+            cuestionario. Utiliza técnicas de Machine Learning para ofrecerte un
+            resultado claro y personalizado, ayudándote a conocer tu estado
+            emocional y brindando apoyo al bienestar universitario.
           </p>
+
           <div className="emotion-features">
             <div className="feature-card">
               <div className="feature-icon">😊</div>
-              <h3>Análisis Facial</h3>
-              <p>Detecta emociones en tiempo real usando IA ligera.</p>
+              <h3>Análisis de emociones</h3>
+              <p>
+                Analiza tus expresiones faciales para reconocer tus emociones en
+                tiempo real.
+              </p>
             </div>
+
             <div className="feature-card">
               <div className="feature-icon">📋</div>
-              <h3>Test PSS-10</h3>
-              <p>Evalúa tu percepción de estrés en el último mes.</p>
+              <h3>Cuestionario sobre estrés</h3>
+              <p>
+                Responde a las preguntas para evaluar tus niveles de estrés
+                percibidos.
+              </p>
             </div>
+
             <div className="feature-card">
               <div className="feature-icon">📊</div>
-              <h3>Resultados</h3>
-              <p>Recibe un reporte instantáneo de tu estado.</p>
+              <h3>Resultados del estudiante</h3>
+              <p>
+                Consulta los resultados de tu evaluación de estrés y el
+                historial de tus mediciones.
+              </p>
             </div>
           </div>
         </section>
@@ -451,12 +513,12 @@ export const EmotionDetector: React.FC = () => {
         <section className="emotion-main">
           {renderCameraPanel()}
           <div className="emotion-panel">
-            <h3>Prueba de Detección</h3>
+            <h3>Emociones detectadas (Prueba)</h3>
             <div className="emotion-json">
               {smoothedEmotion ? (
                 <pre>{JSON.stringify(smoothedEmotion, null, 2)}</pre>
               ) : (
-                <p>Esperando rostro...</p>
+                <p>Detectando...</p>
               )}
             </div>
           </div>
@@ -476,28 +538,51 @@ export const EmotionDetector: React.FC = () => {
     return (
       <div className="questionnaire-page">
         <header className="questionnaire-header">
-          <h1>Instrucciones</h1>
+          <h1>Instrucciones del Test</h1>
         </header>
 
         <div className="questionnaire-grid">
           <section className="card card-pss">
-            <h3>Escala de Estrés Percibido (PSS-10)</h3>
-            <div style={{ fontSize: "1rem", lineHeight: "1.6", color: "#444" }}>
-              <p>Responde pensando en tus sentimientos durante el <strong>último mes</strong>.</p>
-              <div className="alert-info" style={{ backgroundColor: "#e3f2fd", padding: "15px", borderRadius: "8px", marginTop: "20px" }}>
-                ℹ️ <strong>Atención:</strong> Cada pregunta tiene un temporizador de seguridad de 25 segundos.
+            <h3>Sobre la Escala de Estrés Percibido (PSS-10)</h3>
+
+            <div style={{ fontSize: "1rem", lineHeight: "1.6", color: "#444", textAlign: "left" }}>
+              <p>
+                A continuación, encontrarás 10 preguntas sobre tus sentimientos y pensamientos
+                durante el <strong>último mes</strong>.
+              </p>
+
+              <ul style={{ margin: "20px 0", paddingLeft: "20px" }}>
+                <li style={{ marginBottom: "10px" }}>
+                  <strong>Objetivo:</strong> Evaluar cuán impredecible, incontrolable y sobrecargada
+                  sientes tu vida actualmente.
+                </li>
+                <li style={{ marginBottom: "10px" }}>
+                  <strong>Cómo responder:</strong> No intentes contar el número exacto de veces que te has sentido de una manera particular.
+                  Marca la alternativa que mejor represente tu estimación general.
+                </li>
+              </ul>
+
+              <div className="alert-info" style={{ backgroundColor: "#e3f2fd", padding: "15px", borderRadius: "8px", marginTop: "20px", borderLeft: "5px solid #2196f3" }}>
+                ℹ️ <strong>Atención:</strong> Para garantizar una lectura emocional precisa,
+                cada pregunta tendrá un <strong>temporizador de 25 segundos</strong> antes de poder avanzar a la siguiente.
                 <br />
-                <strong>La cámara comenzará a grabar tus micro-expresiones al iniciar el test.</strong>
+                <strong>Tus datos faciales comenzarán a grabarse al iniciar el test.</strong>
               </div>
             </div>
+
             <div style={{ marginTop: "30px" }}>
-              <button className="btn-finish" onClick={() => setStep("questionnaire")}>
-                Comenzar Test
+              <button
+                className="btn-finish"
+                onClick={() => setStep("questionnaire")}
+                style={{ width: "100%", cursor: "pointer" }}
+              >
+                Entendido, Iniciar Test
               </button>
             </div>
           </section>
+
           <section className="card card-camera">
-            <h3>Monitor</h3>
+            <h3>Monitor de Emociones</h3>
             {renderCameraPanel()}
           </section>
         </div>
@@ -509,12 +594,15 @@ export const EmotionDetector: React.FC = () => {
   if (step === "questionnaire") {
     const currentQuestion = QUESTIONS[currentIndex];
     const currentAnswer = answers[currentIndex];
-    const canContinue = currentAnswer !== -1 && seconds >= QUESTION_TIME;
+    const hasAnswered = currentAnswer !== -1;
+    const timeCompleted = seconds >= QUESTION_TIME;
+    const canContinue = hasAnswered && timeCompleted;
+    const isLastQuestion = currentIndex === QUESTIONS.length - 1;
 
     return (
       <div className="questionnaire-page">
         <header className="questionnaire-header">
-          <h1>Evaluación</h1>
+          <h1>Evaluación de Estrés</h1>
         </header>
 
         <div className="questionnaire-grid">
@@ -522,10 +610,13 @@ export const EmotionDetector: React.FC = () => {
             <h3>Pregunta {currentIndex + 1} de {QUESTIONS.length}</h3>
 
             <div className="pss-question-row">
-              <p className="pss-question-text">{currentQuestion.text}</p>
-              <div className="pss-options">
+              <p className="pss-question-text" style={{ fontSize: "1.2rem", fontWeight: "bold", margin: "20px 0" }}>
+                {currentQuestion.text}
+              </p>
+
+              <div className="pss-options" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 {scaleOptions.map((opt) => (
-                  <label key={opt.value} className="pss-option" style={{ backgroundColor: currentAnswer === opt.value ? "#e0f7fa" : "white" }}>
+                  <label key={opt.value} className="pss-option" style={{ padding: "10px", border: "1px solid #ccc", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", backgroundColor: currentAnswer === opt.value ? "#e0f7fa" : "white" }}>
                     <input
                       type="radio"
                       name={`q${currentIndex}`}
@@ -541,10 +632,13 @@ export const EmotionDetector: React.FC = () => {
 
             <div style={{ marginTop: "20px", color: "#555" }}>
               <p>Siguiente habilitado en: {Math.max(0, QUESTION_TIME - seconds)}s</p>
-              <div style={{ width: "100%", height: "8px", background: "#eee", borderRadius: "4px", overflow: "hidden" }}>
+              <div style={{ width: "100%", height: "10px", background: "#eee", borderRadius: "5px", overflow: "hidden" }}>
                 <div style={{ width: `${(seconds / QUESTION_TIME) * 100}%`, height: "100%", background: canContinue ? "#4caf50" : "#ff9800", transition: "width 1s linear" }}></div>
               </div>
             </div>
+
+            {!hasAnswered && <p style={{ color: "orange", fontSize: "0.9rem", marginTop: "10px" }}>⚠️ Selecciona una respuesta.</p>}
+            {hasAnswered && !timeCompleted && <p style={{ color: "#2196f3", fontSize: "0.9rem", marginTop: "10px" }}>⏳ Analizando emociones... espera el temporizador.</p>}
 
             <div style={{ marginTop: "20px" }}>
               <button
@@ -553,16 +647,17 @@ export const EmotionDetector: React.FC = () => {
                 onClick={handleNextOrFinish}
                 style={{
                   opacity: canContinue ? 1 : 0.5,
-                  cursor: canContinue ? "pointer" : "not-allowed"
+                  cursor: canContinue ? "pointer" : "not-allowed",
+                  width: "100%"
                 }}
               >
-                {submitting ? "Enviando..." : (currentIndex === QUESTIONS.length - 1 ? "Finalizar" : "Siguiente")}
+                {submitting ? "Enviando..." : (isLastQuestion ? "Finalizar Cuestionario" : "Siguiente Pregunta")}
               </button>
             </div>
           </section>
 
           <section className="card card-camera">
-            <h3>Monitor (GRABANDO)</h3>
+            <h3>Monitor de Emociones (GRABANDO)</h3>
             {renderCameraPanel()}
           </section>
         </div>
@@ -575,7 +670,7 @@ export const EmotionDetector: React.FC = () => {
     <div className="completed-page">
       <div className="completed-card">
         <h2>¡Cuestionario completado!</h2>
-        <p>Gracias por completar la evaluación. Tus resultados están listos.</p>
+        <p>Gracias por completar la evaluación. Tus respuestas han sido registradas y procesadas.</p>
         <button className="btn-view-results" onClick={handleViewResults}>
           Ver Resultados
         </button>
@@ -583,3 +678,4 @@ export const EmotionDetector: React.FC = () => {
     </div>
   );
 };
+
