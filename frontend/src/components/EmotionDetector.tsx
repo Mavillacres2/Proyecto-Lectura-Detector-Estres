@@ -223,10 +223,16 @@ export const EmotionDetector: React.FC = () => {
       const video = videoRef.current;
 
       // Asegurarse de que el video esté reproduciéndose y tenga dimensiones válidas
-      if (video.paused || video.ended || video.videoWidth === 0) {
+      if (video.ended || video.videoWidth === 0) {
         requestAnimationFrame(processVideo);
         return;
       }
+
+      // Si está pausado → intenta reproducirlo
+      if (video.paused) {
+        video.play().catch(() => { });
+      }
+
 
       // 2. DETECCIÓN LIGERA
       // inputSize: 160 es muy rápido. scoreThreshold: 0.4 filtra falsos positivos.
@@ -366,8 +372,16 @@ export const EmotionDetector: React.FC = () => {
           className="emotion-video"
           muted
           playsInline
-          style={{ display: "none" }}
+          autoPlay
+          style={{
+            position: "absolute",
+            width: "1px",
+            height: "1px",
+            opacity: 0,
+            pointerEvents: "none",
+          }}
         />
+
 
         {/* 👇 Lo que se muestra al usuario */}
         <canvas ref={canvasRef} className="emotion-canvas" />
