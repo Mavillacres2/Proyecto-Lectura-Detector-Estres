@@ -368,36 +368,45 @@ export const EmotionDetector: React.FC = () => {
   const renderCameraPanel = () => (
     <div className="video-card">
       <div className="video-wrapper">
-        {/* 👇 AQUÍ ESTÁ EL CAMBIO: Agregamos 'autoPlay' */}
+        {/* 👇 Video sólo como fuente, oculto */}
         <video
           ref={videoRef}
           className="emotion-video"
-          autoPlay
           muted
           playsInline
+          style={{ display: "none" }}
         />
+
+        {/* 👇 Lo que se muestra al usuario */}
         <canvas ref={canvasRef} className="emotion-canvas" />
 
-        {/* Placeholder de carga */}
-        {!loaded && <div className="video-placeholder">Cargando Modelos IA...</div>}
+        {!loaded && (
+          <div className="video-placeholder">Cargando Modelos IA...</div>
+        )}
 
-        {/* ⚠️ ALERTA DE NO ROSTRO ⚠️ */}
         {loaded && !isFaceDetected && (
           <div className="video-warning-overlay">
             <div className="warning-icon">⚠️</div>
             <div className="warning-text">Rostro no detectado</div>
-            <div className="warning-subtext">Por favor, ubícate frente a la cámara y asegúrate de tener buena luz.</div>
+            <div className="warning-subtext">
+              Por favor, ubícate frente a la cámara y asegúrate de tener buena luz.
+            </div>
           </div>
         )}
-
       </div>
+
       <div className="camera-stats">
         <span>FPS: {fps}</span>
-        <span>Res: {resolution.width}x{resolution.height}</span>
-        {step === "questionnaire" && <span style={{ color: "red", fontWeight: "bold" }}>🔴 GRABANDO</span>}
+        <span>
+          Res: {resolution.width}x{resolution.height}
+        </span>
+        {step === "questionnaire" && (
+          <span style={{ color: "red", fontWeight: "bold" }}>🔴 GRABANDO</span>
+        )}
       </div>
     </div>
   );
+
 
   /** ========================================================
    * RENDERIZADO POR PASOS
