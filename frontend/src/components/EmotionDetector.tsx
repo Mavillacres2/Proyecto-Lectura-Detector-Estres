@@ -259,16 +259,41 @@ export const EmotionDetector: React.FC = () => {
           const expressions = detection.expressions;
           computeSmoothEmotion(expressions);
 
+          // 1. Esto se ejecuta MUY RÁPIDO (100ms) para que el cuadro azul se mueva bien
+          const resized = faceapi.resizeResults(detection, { width: canvas.width, height: canvas.height });
+          faceapi.draw.drawDetections(canvas, resized);
+
           // Enviar al backend como máximo cada 300ms
-          if (isRecordingRef.current && now - lastSend > 300) {
+          // Esto asegura que solo envíes 1 dato por segundo, protegiendo tu servidor.
+          // ... dentro de la función detect ...
+
+          // Esto hace el JSON mucho más ligero para la red
+            const cleanExpressions = {
+                neutral: Number(expressions.neutral.toFixed(4)),
+                happy: Number(expressions.happy.toFixed(4)),
+                sad: Number(expressions.sad.toFixed(4)),
+                angry: Number(expressions.angry.toFixed(4)),
+                fearful: Number(expressions.fearful.toFixed(4)),
+                disgusted: Number(expressions.disgusted.toFixed(4)),
+                surprised: Number(expressions.surprised.toFixed(4))
+            };
+
+          // 🏆 LO MEJOR: 1000ms (1 segundo)
+          // Esto equilibra tener buenos datos sin tumbar el servidor.
+          if (isRecordingRef.current && now - lastSend > 1000) {
             const payload = {
               user_id: Number(userId) || 0,
               session_id: sessionId,
-              emotions: expressions,
+              emotions: cleanExpressions,
               timestamp: Date.now() / 1000,
             };
-            sendEmotionHTTP(payload);
-            sendWS(payload);
+
+            // ✅ Enviamos SOLO por HTTP (Más seguro y estable)
+            sendEmotionHTTP(payload).catch(() => { });
+
+            // ❌ WebSockets DESACTIVADOS (Ahorra mucha CPU en el servidor)
+            // sendWS(payload); 
+
             lastSend = now;
           }
         }
@@ -332,7 +357,7 @@ export const EmotionDetector: React.FC = () => {
       return sum + val;
     }, 0);
   };
-
+/*
   const handleNextOrFinish = async () => {
     const isLastQuestion = currentIndex === QUESTIONS.length - 1;
 
@@ -340,6 +365,8 @@ export const EmotionDetector: React.FC = () => {
       setCurrentIndex((prev) => prev + 1);
       return;
     }
+
+    
 
     if (!userId) {
       alert("No se encontró el usuario. Inicia sesión nuevamente.");
@@ -367,7 +394,55 @@ export const EmotionDetector: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
+  };*/
+
+ const handleNextOrFinish = async () => {
+    const isLastQuestion = currentIndex === QUESTIONS.length - 1;
+
+    // 1. Si no es la última pregunta, solo avanzamos (Rápido)
+    if (!isLastQuestion) {
+      setCurrentIndex((prev) => prev + 1);
+      return;
+    }
+
+    // 2. Validación de seguridad
+    if (!userId) {
+      alert("No se encontró el usuario. Inicia sesión nuevamente.");
+      return;
+    }
+
+    // 🔥 CAMBIO CRÍTICO 1: Bloqueo Inmediato
+    // Detenemos la grabación YA, para que no compita por internet.
+    isRecordingRef.current = false; 
+    setSubmitting(true); // Deshabilitamos el botón visualmente
+
+    // 🔥 CAMBIO CRÍTICO 2: "Cool-down" (Enfriamiento)
+    // Esperamos 500ms (medio segundo) en silencio. 
+    // Esto permite que cualquier petición de emoción "basura" que estaba saliendo 
+    // termine de enviarse o cancelarse antes de mandar el resultado importante.
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const pss_score = calculatePSSScore();
+
+    try {
+      // 3. Envío Seguro
+      const res = await submitPSS({
+        user_id: userId,
+        session_id: sessionId,
+        pss_score,
+      });
+
+      setResultsData(res.data);
+      setStep("completed"); // ¡Éxito! Cambiamos de pantalla
+    } catch (err) {
+      console.error(err);
+      // Si falla, permitimos intentar de nuevo
+      setSubmitting(false); 
+      alert("La red está congestionada. Por favor, presiona 'Finalizar' nuevamente.");
+    } 
+    // Nota: Quité el 'finally' para no reactivar el botón si ya pasamos a "completed"
   };
+
 
   const handleViewResults = () => {
     if (!resultsData) return;
@@ -673,8 +748,8 @@ export const EmotionDetector: React.FC = () => {
                 {submitting
                   ? "Enviando..."
                   : isLastQuestion
-                  ? "Finalizar Cuestionario"
-                  : "Siguiente Pregunta"}
+                    ? "Finalizar Cuestionario"
+                    : "Siguiente Pregunta"}
               </button>
             </div>
           </section>
