@@ -264,25 +264,22 @@ export const EmotionDetector: React.FC = () => {
    };*/
 
   /** Loop de detección OPTIMIZADO */
+  /** Loop de detección OPTIMIZADO Y ALINEADO */
   const runDetectionLoop = () => {
-    // Marcamos como activo (usamos este ref solo como flag)
+    // Usamos este ref solo como flag de “sigo vivo”
     detectionIntervalRef.current = 1;
 
-    let lastDetection = 0; // último momento en el que hicimos detección
+    let lastDetection = 0;
 
     const detect = async () => {
-      // Si desmontaron el componente o apagamos el loop, salimos
-      if (!videoRef.current || !loaded || !detectionIntervalRef.current) return;
+      if (!videoRef.current || !canvasRef.current || !loaded || !detectionIntervalRef.current) {
+        return;
+      }
 
       const video = videoRef.current;
       const canvas = canvasRef.current;
 
-      if (!canvas || !video) {
-        requestAnimationFrame(detect);
-        return;
-      }
-
-      // Asegurarse de que el video tenga datos
+      // Asegurarnos de que el video tenga datos
       if (video.readyState < 2 || video.videoWidth === 0) {
         requestAnimationFrame(detect);
         return;
@@ -290,60 +287,58 @@ export const EmotionDetector: React.FC = () => {
 
       const now = performance.now();
 
-      // 🔹 LIMITAMOS la detección a máx ~8 veces por segundo (cada 120ms)
+      // Limitar frecuencia de detección (~8 fps)
       if (now - lastDetection < 120) {
         requestAnimationFrame(detect);
         return;
       }
       lastDetection = now;
 
-      // Opciones ligeras del TinyFaceDetector
+      // --- 1) Ajustar tamaño interno del canvas al del video ---
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        requestAnimationFrame(detect);
+        return;
+      }
+
+      // --- 2) Dibujar el frame de la cámara en el canvas ---
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // --- 3) Detectar directamente SOBRE el canvas ---
       const options = new faceapi.TinyFaceDetectorOptions({
-        inputSize: 224,      // 160–320, 224 es buen equilibrio
-        scoreThreshold: 0.5, // ajusta si quieres más/menos sensibilidad
+        inputSize: 224,
+        scoreThreshold: 0.5,
       });
 
       try {
-        const detections = await faceapi
-          .detectSingleFace(video, options)
+        const result = await faceapi
+          .detectSingleFace(canvas, options)      // 👈 aquí ahora usamos canvas
           .withFaceLandmarks()
           .withFaceExpressions();
 
-        // Ajustar canvas solo cuando cambian dimensiones
-        if (
-          canvas.width !== video.videoWidth ||
-          canvas.height !== video.videoHeight
-        ) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-        }
+        // Limpiamos SOLO overlays (no el frame que acabamos de dibujar)
+        // Opcional: si quieres limpiar antes de dibujar cajas:
+        // ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        const displaySize = {
-          width: video.videoWidth,
-          height: video.videoHeight,
-        };
-        faceapi.matchDimensions(canvas, displaySize);
+        if (result) {
+          // Como la detección se hizo en el mismo canvas,
+          // NO hace falta matchDimensions ni resizeResults
+          faceapi.draw.drawDetections(canvas, result);
+          faceapi.draw.drawFaceLandmarks(canvas, result);
 
-        const ctx = canvas.getContext("2d");
-        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+          if (result.expressions) {
+            computeSmoothEmotion(result.expressions);
 
-        if (detections) {
-          const resized = faceapi.resizeResults(detections, displaySize);
-
-          // Dibujamos cajas y landmarks
-          faceapi.draw.drawDetections(canvas, resized);
-          faceapi.draw.drawFaceLandmarks(canvas, resized);
-
-          if (resized.expressions) {
-            // Suavizado de emociones (para la UI)
-            computeSmoothEmotion(resized.expressions);
-
-            // 🔥 Enviar al backend SOLO si estamos grabando (cuestionario)
             if (isRecordingRef.current) {
               const payload = {
                 user_id: Number(userId) || 0,
                 session_id: sessionId,
-                emotions: resized.expressions,
+                emotions: result.expressions,
                 timestamp: Date.now() / 1000,
               };
               sendEmotionHTTP(payload);
@@ -353,16 +348,14 @@ export const EmotionDetector: React.FC = () => {
         }
       } catch (e) {
         console.error("Error en loop de detección:", e);
-        // Si hay error, simplemente seguimos al siguiente frame
       }
 
-      // Pedimos el siguiente frame
       requestAnimationFrame(detect);
     };
 
-    // Iniciamos el loop
     detect();
   };
+
 
 
   // Carga inicial
