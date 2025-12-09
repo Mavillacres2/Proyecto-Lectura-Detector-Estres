@@ -65,6 +65,10 @@ export const EmotionDetector: React.FC = () => {
   const [resultsData, setResultsData] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // 🔁 CAMBIO 1: constantes de rendimiento para el loop optimizado
+  const DETECTION_INTERVAL_MS = 120; // máx ~8 detecciones por segundo
+  const TINY_INPUT_SIZE = 160;       // resolución interna pequeña para TinyFaceDetector
+
   const navigate = useNavigate();
 
   // Cargar ID de usuario al montar
@@ -194,13 +198,15 @@ export const EmotionDetector: React.FC = () => {
     setFps(Math.round(avg));
   }, [fpsBuffer]);
 
+  /** 🔁 CAMBIO 5: suavizado de emociones con buffer pequeño (menos lag) */
   const computeSmoothEmotion = (expressions: any) => {
     setSmoothBuffer((prev) => {
       const updated = [...prev, expressions];
-      if (updated.length > 5) updated.shift();
+      if (updated.length > 3) updated.shift(); // antes 5
       return updated;
     });
   };
+
 
   useEffect(() => {
     if (smoothBuffer.length === 0) return;
@@ -213,73 +219,36 @@ export const EmotionDetector: React.FC = () => {
   }, [smoothBuffer]);
 
   /** Loop de detección de Rostros */
-  /* const runDetectionLoop = () => {
-     const intervalId = window.setInterval(async () => {
-       if (!videoRef.current || !loaded) return;
- 
-       // Opciones para mejorar rendimiento si es necesario (minConfidence)
-       const detections = await faceapi
-         .detectSingleFace(videoRef.current, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
-         .withFaceLandmarks()
-         .withFaceExpressions();
- 
-       const canvas = canvasRef.current;
-       const video = videoRef.current;
-       if (!canvas || !video) return;
- 
-       canvas.width = video.videoWidth;
-       canvas.height = video.videoHeight;
-       const displaySize = { width: video.videoWidth, height: video.videoHeight };
-       faceapi.matchDimensions(canvas, displaySize);
-       const ctx = canvas.getContext("2d");
-       if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
- 
-       if (!detections) return;
-       const resized = faceapi.resizeResults(detections, displaySize);
-       faceapi.draw.drawDetections(canvas, resized);
-       faceapi.draw.drawFaceLandmarks(canvas, resized);
- 
-       if (resized.expressions) {
-         // Siempre calculamos el promedio para mostrarlo en pantalla (Feedback visual)
-         computeSmoothEmotion(resized.expressions);
-         
-         // 🔥 LÓGICA CONDICIONAL DE ENVÍO
-         // Solo enviamos al backend si el Ref indica que estamos grabando (Cuestionario activo)
-         if (isRecordingRef.current) {
-             const payload = {
-               user_id: Number(userId) || 0,
-               session_id: sessionId,
-               emotions: resized.expressions,
-               timestamp: Date.now() / 1000,
-             };
-             
-             // Enviamos datos al backend y WS
-             sendEmotionHTTP(payload);
-             sendWS(payload);
-         }
-       }
-     }, 150); // Loop cada 150ms
- 
-     detectionIntervalRef.current = intervalId;
-   };*/
 
-  /** Loop de detección OPTIMIZADO */
-  /** Loop de detección OPTIMIZADO Y ALINEADO */
+  /** 🔁 CAMBIO 6: Loop de detección OPTIMIZADO (sin setInterval ni landmarks) */
   const runDetectionLoop = () => {
-    // Usamos este ref solo como flag de “sigo vivo”
+    // Marcamos como activo (flag)
     detectionIntervalRef.current = 1;
 
     let lastDetection = 0;
+    let lastSend = 0;
+    let frameCount = 0;
+    let lastFpsTime = performance.now();
 
     const detect = async () => {
-      if (!videoRef.current || !canvasRef.current || !loaded || !detectionIntervalRef.current) {
-        return;
-      }
+      // Si desmontaron el componente o apagamos el loop, salimos
+      if (!videoRef.current || !canvasRef.current || !loaded || !detectionIntervalRef.current) return;
 
       const video = videoRef.current;
       const canvas = canvasRef.current;
 
-      // Asegurarnos de que el video tenga datos
+      if (!canvas || !video) {
+        requestAnimationFrame(detect);
+        return;
+      }
+
+      // ⚠️ SOLO procesamos detección durante el cuestionario
+      if (step !== "questionnaire") {
+        requestAnimationFrame(detect);
+        return;
+      }
+
+      // Asegurarse de que el video tenga datos
       if (video.readyState < 2 || video.videoWidth === 0) {
         requestAnimationFrame(detect);
         return;
@@ -287,14 +256,22 @@ export const EmotionDetector: React.FC = () => {
 
       const now = performance.now();
 
-      // Limitar frecuencia de detección (~8 fps)
-      if (now - lastDetection < 120) {
+      // Limitamos la frecuencia de detección
+      if (now - lastDetection < DETECTION_INTERVAL_MS) {
         requestAnimationFrame(detect);
         return;
       }
       lastDetection = now;
 
-      // --- 1) Ajustar tamaño interno del canvas al del video ---
+      // FPS basado en detecciones
+      frameCount++;
+      if (now - lastFpsTime >= 1000) {
+        setFps(Math.round((frameCount * 1000) / (now - lastFpsTime)));
+        frameCount = 0;
+        lastFpsTime = now;
+      }
+
+      // Ajustar canvas al tamaño del video
       if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -306,44 +283,43 @@ export const EmotionDetector: React.FC = () => {
         return;
       }
 
-      // --- 2) Dibujar el frame de la cámara en el canvas ---
+      // Dibujar frame de la cámara en el canvas
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // --- 3) Detectar directamente SOBRE el canvas ---
+      // TinyFaceDetector ligero
       const options = new faceapi.TinyFaceDetectorOptions({
-        inputSize: 224,
+        inputSize: TINY_INPUT_SIZE,
         scoreThreshold: 0.5,
       });
 
       try {
-        const result = await faceapi
-          .detectSingleFace(canvas, options)      // 👈 aquí ahora usamos canvas
-          .withFaceLandmarks()
+        const detection = await faceapi
+          .detectSingleFace(canvas, options) // usamos el frame del canvas
           .withFaceExpressions();
 
-        // Limpiamos SOLO overlays (no el frame que acabamos de dibujar)
-        // Opcional: si quieres limpiar antes de dibujar cajas:
-        // ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        if (detection) {
+          const box = detection.detection.box;
 
-        if (result) {
-          // Como la detección se hizo en el mismo canvas,
-          // NO hace falta matchDimensions ni resizeResults
-          faceapi.draw.drawDetections(canvas, result);
-          faceapi.draw.drawFaceLandmarks(canvas, result);
+          // Dibujamos solo la caja (sin landmarks)
+          const drawBox = new faceapi.draw.DrawBox(box, {
+            label: detection.detection.score.toFixed(2),
+          });
+          drawBox.draw(canvas);
 
-          if (result.expressions) {
-            computeSmoothEmotion(result.expressions);
+          const expressions = detection.expressions;
+          computeSmoothEmotion(expressions);
 
-            if (isRecordingRef.current) {
-              const payload = {
-                user_id: Number(userId) || 0,
-                session_id: sessionId,
-                emotions: result.expressions,
-                timestamp: Date.now() / 1000,
-              };
-              sendEmotionHTTP(payload);
-              sendWS(payload);
-            }
+          // Enviar al backend como máximo cada 300ms
+          if (isRecordingRef.current && now - lastSend > 300) {
+            const payload = {
+              user_id: Number(userId) || 0,
+              session_id: sessionId,
+              emotions: expressions,
+              timestamp: Date.now() / 1000,
+            };
+            sendEmotionHTTP(payload);
+            sendWS(payload);
+            lastSend = now;
           }
         }
       } catch (e) {
@@ -357,33 +333,35 @@ export const EmotionDetector: React.FC = () => {
   };
 
 
-
   // Carga inicial
   useEffect(() => { loadModels(); }, []);
 
-  // Reinicio de cámara al cambiar de paso o cargar modelos
+  /** 🔁 CAMBIO 7: iniciamos cámara siempre, pero detección SOLO en questionnaire */
   useEffect(() => {
     if (!loaded) return;
 
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-      detectionIntervalRef.current = null;
-    }
-
+    // siempre tenemos preview de cámara
     startCamera();
-    runDetectionLoop();
+
+    // pero solo arrancamos el loop pesado cuando estamos en el cuestionario
+    if (step === "questionnaire") {
+      runDetectionLoop();
+    }
 
     // Cleanup
     return () => {
-      if (detectionIntervalRef.current) {
-        clearInterval(detectionIntervalRef.current);
-        detectionIntervalRef.current = null;
-      }
+      // apagar el loop
+      detectionIntervalRef.current = null;
+
+      // apagar cámara
       if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+        (videoRef.current.srcObject as MediaStream)
+          .getTracks()
+          .forEach((t) => t.stop());
       }
     };
   }, [loaded, step]);
+
 
   /** ======= LÓGICA DE RESPUESTAS Y ENVÍO ======= */
 
