@@ -80,28 +80,28 @@
 .video-wrapper {
   position: relative;
   width: 100%;
-  background: #bdbdbd;
+  aspect-ratio: 4 / 3;      /* 🔹 Fuerza una altura proporcional */
+  background: #000;         /* Mejor negro para cámara */
   border-radius: 8px;
   overflow: hidden;
-  /* Truco para mantener proporción si es necesario, o dejar auto */
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
-.emotion-video {
+/* Video y canvas ocupan TODO el wrapper */
+.emotion-video,
+.emotion-canvas {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: auto; /* Importante para responsive */
-  display: block;
+  height: 100%;
+  object-fit: cover;
 }
 
 .emotion-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  pointer-events: none;     /* Por si acaso, para no tapar clicks */
 }
+
+
+
 
 .video-placeholder {
   position: absolute;
