@@ -118,44 +118,42 @@ export const EmotionDetector: React.FC = () => {
 
   /** 2. Iniciar cámara con baja resolución (320x240) para velocidad */
   const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 320 },
-          height: { ideal: 240 },
-          facingMode: "user",
-          frameRate: { ideal: 15, max: 24 },
-        },
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 320 },
+        height: { ideal: 240 },
+        facingMode: "user",
+        frameRate: { ideal: 15, max: 24 },
+      },
+      audio: false,
+    });
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.srcObject = stream;
+
+    // 👉 MUY IMPORTANTE: enganchar el handler ANTES de que se disparen los metadatos
+    video.onloadedmetadata = () => {
+      console.log("📸 loadedmetadata:", video.videoWidth, video.videoHeight);
+
+      setResolution({
+        width: video.videoWidth,
+        height: video.videoHeight,
       });
 
-      const video = videoRef.current;
-      if (!video) return;
+      // Intentar reproducir
+      video
+        .play()
+        .then(() => console.log("▶️ Video reproduciéndose"))
+        .catch((e) => console.error("Error al reproducir video:", e));
+    };
 
-      video.srcObject = stream;
-
-      // 🔹 Primero configuramos el handler
-      video.onloadedmetadata = () => {
-        // Cuando ya haya metadatos, el video tiene width/height reales
-        setResolution({
-          width: video.videoWidth,
-          height: video.videoHeight,
-        });
-
-        // Aseguramos que empiece a reproducirse
-        video.play().catch((e) => console.error("Error al reproducir:", e));
-      };
-
-      // 🔹 Esto dispara la carga de metadatos
-      // (aunque no es estrictamente necesario hacer await aquí)
-      await video.play().catch(() => {
-        // algunos navegadores no permiten autoplay sin interacción;
-        // si falla, se corregirá cuando el usuario pulse un botón
-      });
-
-    } catch (err) {
-      console.error("Error iniciando cámara:", err);
-    }
-  };
+  } catch (err) {
+    console.error("Error iniciando cámara:", err);
+  }
+};
 
 
   /** ⏱️ Timer del cuestionario */
