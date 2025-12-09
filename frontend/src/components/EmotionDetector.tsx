@@ -237,9 +237,10 @@ export const EmotionDetector: React.FC = () => {
       // 2. DETECCIÓN LIGERA
       // inputSize: 160 es muy rápido. scoreThreshold: 0.4 filtra falsos positivos.
       const options = new faceapi.TinyFaceDetectorOptions({
-        inputSize: 256,      // antes 160 → detecta mejor
-        scoreThreshold: 0.25 // antes 0.4 → acepta más rostros
+        inputSize: 320,
+        scoreThreshold: 0.15,  // mucho más permisivo
       });
+
 
       try {
         const detection = await faceapi
