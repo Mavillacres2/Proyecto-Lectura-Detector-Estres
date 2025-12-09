@@ -77,14 +77,14 @@ export const EmotionDetector: React.FC = () => {
   /** 1. CARGA DE MODELOS CON PROTECCIÓN ANTI-FALLO (CPU FALLBACK) */
   const loadModels = async () => {
     try {
-      // Intentamos cargar normal
+      // Intentamos cargar modelos
       await Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
         faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
       ]);
       
-      // Intentamos inicializar el backend (esto es lo que falla en tu captura)
+      // Intentamos usar WebGL, si falla pasamos a CPU
       try {
           await faceapi.tf.setBackend('webgl');
           await faceapi.tf.ready();
@@ -99,8 +99,8 @@ export const EmotionDetector: React.FC = () => {
           console.log("✅ Modelos cargados correctamente");
       }
     } catch (err) {
-      console.error("❌ Error fatal cargando modelos:", err);
-      // Intento desesperado: forzar CPU si todo falla
+      console.error("❌ Error fatal cargando modelos, forzando CPU:", err);
+      // Intento final: forzar CPU si todo falla
       await faceapi.tf.setBackend('cpu');
       await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
       await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
@@ -235,7 +235,6 @@ export const EmotionDetector: React.FC = () => {
                         timestamp: Date.now() / 1000,
                     };
                     sendEmotionHTTP(payload).catch(() => {});
-                    // sendWS(payload); // Desactivado
                     lastSend = now;
                 }
             } else {
@@ -342,7 +341,7 @@ export const EmotionDetector: React.FC = () => {
     </div>
   );
 
-  // VISTAS (Igual que antes)
+  // VISTAS
   if (step === "intro") {
     return (
       <div className="emotion-page">
