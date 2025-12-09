@@ -35,22 +35,24 @@ const scaleOptions = [
   { label: "Muy a menudo", value: 4 },
 ];
 
+// 🔁 CAMBIO 1: constantes de rendimiento para el loop optimizado
+const DETECTION_INTERVAL_MS = 120; // máx ~8 detecciones por segundo
+const TINY_INPUT_SIZE = 160;       // resolución interna pequeña para TinyFaceDetector
+
 export const EmotionDetector: React.FC = () => {
   // Refs para video y detección
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const detectionIntervalRef = useRef<number | null>(null);
+  const detectionIntervalRef = useRef<number | null>(null); // usamos como FLAG de "loop activo"
 
-  // 🔥 NUEVO: Ref para controlar cuándo guardar datos
-  // Usamos ref en lugar de state porque necesitamos acceder al valor actualizado dentro del setInterval
+  // Ref para controlar cuándo guardar datos
   const isRecordingRef = useRef(false);
 
   // Estados de IA y Cámara
   const [loaded, setLoaded] = useState(false);
   const [smoothBuffer, setSmoothBuffer] = useState<any[]>([]);
   const [smoothedEmotion, setSmoothedEmotion] = useState<any>(null);
-  const [fps, setFps] = useState(0);
-  const [fpsBuffer, setFpsBuffer] = useState<number[]>([]);
+  const [fps, setFps] = useState(0);          // 🔁 CAMBIO 2: solo un estado de FPS (sin buffer)
   const [resolution, setResolution] = useState({ width: 0, height: 0 });
 
   // Estados de Flujo y Usuario
@@ -73,9 +75,8 @@ export const EmotionDetector: React.FC = () => {
     if (stored) setUserId(Number(stored));
   }, []);
 
-  // 🔥 NUEVO: Sincronizar el ref de grabación con el paso actual
+  // Sincronizar el ref de grabación con el paso actual
   useEffect(() => {
-    // Solo permitimos enviar datos si estamos en la fase del cuestionario
     if (step === "questionnaire") {
       isRecordingRef.current = true;
       console.log("🔴 GRABACIÓN DE DATOS INICIADA (Dataset activo)");
@@ -89,15 +90,10 @@ export const EmotionDetector: React.FC = () => {
   const loadModels = async () => {
     try {
       await Promise.all([
-        // CAMBIO IMPORTANTE: Usamos el modelo Tiny
+        // 🔁 CAMBIO 3: usamos TinyFaceDetector + expresiones (sin SSD MobileNet pesado)
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL), // Ojo: a veces se necesita el "tiny" landmark también, pero prueba con este primero
         faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
-
-        /*faceapi.loadSsdMobilenetv1Model(MODEL_URL),
-        faceapi.loadFaceLandmarkModel(MODEL_URL),
-        faceapi.loadFaceExpressionModel(MODEL_URL),*/
-
+        // (podrías añadir landmarks si los necesitaras, pero los quitamos para ahorrar CPU)
       ]);
       setLoaded(true);
       console.log("✅ Modelos cargados (Tiny Version)");
@@ -106,15 +102,15 @@ export const EmotionDetector: React.FC = () => {
     }
   };
 
-  /** 2. Iniciar cámara */
+  /** 2. Iniciar cámara (baja resolución para rendimiento) */
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 320 },       // 🔹 antes 640
-          height: { ideal: 240 },      // 🔹 antes 480
+          width: { ideal: 320 },        // 🔁 CAMBIO 4: menor resolución
+          height: { ideal: 240 },
           facingMode: "user",
-          frameRate: { ideal: 15, max: 20 }, // 🔹 limitamos FPS de la cámara
+          frameRate: { ideal: 15, max: 20 }, // limitamos FPS de la cámara
         },
         audio: false,
       });
@@ -140,7 +136,6 @@ export const EmotionDetector: React.FC = () => {
     }
   };
 
-
   /** ⏱️ Lógica del Timer */
   useEffect(() => {
     if (step !== "questionnaire") return;
@@ -156,48 +151,11 @@ export const EmotionDetector: React.FC = () => {
     return () => clearInterval(intervalId);
   }, [currentIndex, step]);
 
-  /** Lógica de FPS */
-  useEffect(() => {
-    if (!loaded) return;
-    let lastFrameTime = performance.now();
-    let frameCount = 0;
-    let animationId: number;
-
-    const updateFPS = () => {
-      frameCount++;
-      animationId = requestAnimationFrame(updateFPS);
-    };
-    updateFPS();
-
-    const intervalId = window.setInterval(() => {
-      const now = performance.now();
-      const delta = now - lastFrameTime;
-      const rawFps = delta > 0 ? Math.round((frameCount / delta) * 1000) : 0;
-      frameCount = 0;
-      lastFrameTime = now;
-      setFpsBuffer((prev) => {
-        const updated = [...prev, rawFps];
-        if (updated.length > 10) updated.shift();
-        return updated;
-      });
-    }, 1000);
-
-    return () => {
-      window.cancelAnimationFrame(animationId);
-      clearInterval(intervalId);
-    };
-  }, [loaded]);
-
-  useEffect(() => {
-    if (fpsBuffer.length === 0) return;
-    const avg = fpsBuffer.reduce((sum, value) => sum + value, 0) / fpsBuffer.length;
-    setFps(Math.round(avg));
-  }, [fpsBuffer]);
-
+  /** 🔁 CAMBIO 5: suavizado de emociones con buffer pequeño (menos lag) */
   const computeSmoothEmotion = (expressions: any) => {
     setSmoothBuffer((prev) => {
       const updated = [...prev, expressions];
-      if (updated.length > 5) updated.shift();
+      if (updated.length > 3) updated.shift(); // antes 5
       return updated;
     });
   };
@@ -212,26 +170,35 @@ export const EmotionDetector: React.FC = () => {
     setSmoothedEmotion(avg);
   }, [smoothBuffer]);
 
-  /** Loop de detección de Rostros */
-
-  // 👉 Puedes poner estos "knobs" arriba del componente:
-  const DETECTION_INTERVAL_MS = 90;  // 90–120ms está bien (≈ 8–11 fps de detección)
-  const TINY_INPUT_SIZE = 160;       // 160 ó 128 = más rápido que 224
-
+  /** 🔁 CAMBIO 6: Loop de detección OPTIMIZADO (sin setInterval ni landmarks) */
   const runDetectionLoop = () => {
+    // Marcamos como activo (flag)
     detectionIntervalRef.current = 1;
 
     let lastDetection = 0;
-    let lastSend = 0; // para no spamear al backend
+    let lastSend = 0;
+    let frameCount = 0;
+    let lastFpsTime = performance.now();
 
     const detect = async () => {
-      if (!videoRef.current || !canvasRef.current || !loaded || !detectionIntervalRef.current) {
-        return;
-      }
+      // Si desmontaron el componente o apagamos el loop, salimos
+      if (!videoRef.current || !canvasRef.current || !loaded || !detectionIntervalRef.current) return;
 
       const video = videoRef.current;
       const canvas = canvasRef.current;
 
+      if (!canvas || !video) {
+        requestAnimationFrame(detect);
+        return;
+      }
+
+      // ⚠️ SOLO procesamos detección durante el cuestionario
+      if (step !== "questionnaire") {
+        requestAnimationFrame(detect);
+        return;
+      }
+
+      // Asegurarse de que el video tenga datos
       if (video.readyState < 2 || video.videoWidth === 0) {
         requestAnimationFrame(detect);
         return;
@@ -239,14 +206,22 @@ export const EmotionDetector: React.FC = () => {
 
       const now = performance.now();
 
-      // ⏱️ limitamos frecuencia de detección
+      // Limitamos la frecuencia de detección
       if (now - lastDetection < DETECTION_INTERVAL_MS) {
         requestAnimationFrame(detect);
         return;
       }
       lastDetection = now;
 
-      // 1) Ajustar tamaño del canvas al del video
+      // FPS basado en detecciones
+      frameCount++;
+      if (now - lastFpsTime >= 1000) {
+        setFps(Math.round((frameCount * 1000) / (now - lastFpsTime)));
+        frameCount = 0;
+        lastFpsTime = now;
+      }
+
+      // Ajustar canvas al tamaño del video
       if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -258,10 +233,10 @@ export const EmotionDetector: React.FC = () => {
         return;
       }
 
-      // 2) Dibujar frame de la cámara
+      // Dibujar frame de la cámara en el canvas
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // 3) Detección ligera (SIN landmarks)
+      // TinyFaceDetector ligero
       const options = new faceapi.TinyFaceDetectorOptions({
         inputSize: TINY_INPUT_SIZE,
         scoreThreshold: 0.5,
@@ -269,13 +244,13 @@ export const EmotionDetector: React.FC = () => {
 
       try {
         const detection = await faceapi
-          .detectSingleFace(canvas, options)   // 👈 solo detección
-          .withFaceExpressions();             // 👈 y emociones
+          .detectSingleFace(canvas, options) // usamos el frame del canvas
+          .withFaceExpressions();
 
         if (detection) {
           const box = detection.detection.box;
 
-          // Dibujar solo la caja (sin puntos de landmarks)
+          // Dibujamos solo la caja (sin landmarks)
           const drawBox = new faceapi.draw.DrawBox(box, {
             label: detection.detection.score.toFixed(2),
           });
@@ -284,7 +259,7 @@ export const EmotionDetector: React.FC = () => {
           const expressions = detection.expressions;
           computeSmoothEmotion(expressions);
 
-          // Enviar al backend como máx. cada 300 ms
+          // Enviar al backend como máximo cada 300ms
           if (isRecordingRef.current && now - lastSend > 300) {
             const payload = {
               user_id: Number(userId) || 0,
@@ -307,30 +282,33 @@ export const EmotionDetector: React.FC = () => {
     detect();
   };
 
+  // Carga inicial de modelos
+  useEffect(() => {
+    loadModels();
+  }, []);
 
-  // Carga inicial
-  useEffect(() => { loadModels(); }, []);
-
-  // Reinicio de cámara al cambiar de paso o cargar modelos
+  /** 🔁 CAMBIO 7: iniciamos cámara siempre, pero detección SOLO en questionnaire */
   useEffect(() => {
     if (!loaded) return;
 
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-      detectionIntervalRef.current = null;
-    }
-
+    // siempre tenemos preview de cámara
     startCamera();
-    runDetectionLoop();
+
+    // pero solo arrancamos el loop pesado cuando estamos en el cuestionario
+    if (step === "questionnaire") {
+      runDetectionLoop();
+    }
 
     // Cleanup
     return () => {
-      if (detectionIntervalRef.current) {
-        clearInterval(detectionIntervalRef.current);
-        detectionIntervalRef.current = null;
-      }
+      // apagar el loop
+      detectionIntervalRef.current = null;
+
+      // apagar cámara
       if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+        (videoRef.current.srcObject as MediaStream)
+          .getTracks()
+          .forEach((t) => t.stop());
       }
     };
   }, [loaded, step]);
@@ -406,8 +384,12 @@ export const EmotionDetector: React.FC = () => {
       </div>
       <div className="camera-stats">
         <span>FPS: {fps}</span>
-        <span>Res: {resolution.width} x {resolution.height}</span>
-        {step === "questionnaire" && <span style={{ color: "red", fontWeight: "bold" }}>🔴 REC</span>}
+        <span>
+          Res: {resolution.width} x {resolution.height}
+        </span>
+        {step === "questionnaire" && (
+          <span style={{ color: "red", fontWeight: "bold" }}>🔴 REC</span>
+        )}
       </div>
     </div>
   );
@@ -420,7 +402,6 @@ export const EmotionDetector: React.FC = () => {
   if (step === "intro") {
     return (
       <div className="emotion-page">
-
         <section className="emotion-header">
           <p className="emotion-description">
             Este sistema te permite evaluar tu nivel de estrés de forma rápida y
@@ -475,7 +456,10 @@ export const EmotionDetector: React.FC = () => {
         </section>
 
         <div className="emotion-actions">
-          <button className="btn-questionary" onClick={() => setStep("instructions")}>
+          <button
+            className="btn-questionary"
+            onClick={() => setStep("instructions")}
+          >
             Continuar a Instrucciones
           </button>
         </div>
@@ -495,28 +479,50 @@ export const EmotionDetector: React.FC = () => {
           <section className="card card-pss">
             <h3>Sobre la Escala de Estrés Percibido (PSS-10)</h3>
 
-            <div style={{ fontSize: "1rem", lineHeight: "1.6", color: "#444", textAlign: "left" }}>
+            <div
+              style={{
+                fontSize: "1rem",
+                lineHeight: "1.6",
+                color: "#444",
+                textAlign: "left",
+              }}
+            >
               <p>
-                A continuación, encontrarás 10 preguntas sobre tus sentimientos y pensamientos
-                durante el <strong>último mes</strong>.
+                A continuación, encontrarás 10 preguntas sobre tus sentimientos y
+                pensamientos durante el <strong>último mes</strong>.
               </p>
 
               <ul style={{ margin: "20px 0", paddingLeft: "20px" }}>
                 <li style={{ marginBottom: "10px" }}>
-                  <strong>Objetivo:</strong> Evaluar cuán impredecible, incontrolable y sobrecargada
-                  sientes tu vida actualmente.
+                  <strong>Objetivo:</strong> Evaluar cuán impredecible,
+                  incontrolable y sobrecargada sientes tu vida actualmente.
                 </li>
                 <li style={{ marginBottom: "10px" }}>
-                  <strong>Cómo responder:</strong> No intentes contar el número exacto de veces que te has sentido de una manera particular.
-                  Marca la alternativa que mejor represente tu estimación general.
+                  <strong>Cómo responder:</strong> No intentes contar el número
+                  exacto de veces que te has sentido de una manera particular.
+                  Marca la alternativa que mejor represente tu estimación
+                  general.
                 </li>
               </ul>
 
-              <div className="alert-info" style={{ backgroundColor: "#e3f2fd", padding: "15px", borderRadius: "8px", marginTop: "20px", borderLeft: "5px solid #2196f3" }}>
-                ℹ️ <strong>Atención:</strong> Para garantizar una lectura emocional precisa,
-                cada pregunta tendrá un <strong>temporizador de 25 segundos</strong> antes de poder avanzar a la siguiente.
+              <div
+                className="alert-info"
+                style={{
+                  backgroundColor: "#e3f2fd",
+                  padding: "15px",
+                  borderRadius: "8px",
+                  marginTop: "20px",
+                  borderLeft: "5px solid #2196f3",
+                }}
+              >
+                ℹ️ <strong>Atención:</strong> Para garantizar una lectura
+                emocional precisa, cada pregunta tendrá un{" "}
+                <strong>temporizador de 25 segundos</strong> antes de poder
+                avanzar a la siguiente.
                 <br />
-                <strong>Tus datos faciales comenzarán a grabarse al iniciar el test.</strong>
+                <strong>
+                  Tus datos faciales comenzarán a grabarse al iniciar el test.
+                </strong>
               </div>
             </div>
 
@@ -557,16 +563,42 @@ export const EmotionDetector: React.FC = () => {
 
         <div className="questionnaire-grid">
           <section className="card card-pss">
-            <h3>Pregunta {currentIndex + 1} de {QUESTIONS.length}</h3>
+            <h3>
+              Pregunta {currentIndex + 1} de {QUESTIONS.length}
+            </h3>
 
             <div className="pss-question-row">
-              <p className="pss-question-text" style={{ fontSize: "1.2rem", fontWeight: "bold", margin: "20px 0" }}>
+              <p
+                className="pss-question-text"
+                style={{
+                  fontSize: "1.2rem",
+                  fontWeight: "bold",
+                  margin: "20px 0",
+                }}
+              >
                 {currentQuestion.text}
               </p>
 
-              <div className="pss-options" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <div
+                className="pss-options"
+                style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+              >
                 {scaleOptions.map((opt) => (
-                  <label key={opt.value} className="pss-option" style={{ padding: "10px", border: "1px solid #ccc", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", backgroundColor: currentAnswer === opt.value ? "#e0f7fa" : "white" }}>
+                  <label
+                    key={opt.value}
+                    className="pss-option"
+                    style={{
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      backgroundColor:
+                        currentAnswer === opt.value ? "#e0f7fa" : "white",
+                    }}
+                  >
                     <input
                       type="radio"
                       name={`q${currentIndex}`}
@@ -581,14 +613,51 @@ export const EmotionDetector: React.FC = () => {
             </div>
 
             <div style={{ marginTop: "20px", color: "#555" }}>
-              <p>Siguiente habilitado en: {Math.max(0, QUESTION_TIME - seconds)}s</p>
-              <div style={{ width: "100%", height: "10px", background: "#eee", borderRadius: "5px", overflow: "hidden" }}>
-                <div style={{ width: `${(seconds / QUESTION_TIME) * 100}%`, height: "100%", background: canContinue ? "#4caf50" : "#ff9800", transition: "width 1s linear" }}></div>
+              <p>
+                Siguiente habilitado en: {Math.max(0, QUESTION_TIME - seconds)}s
+              </p>
+              <div
+                style={{
+                  width: "100%",
+                  height: "10px",
+                  background: "#eee",
+                  borderRadius: "5px",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${(seconds / QUESTION_TIME) * 100}%`,
+                    height: "100%",
+                    background: canContinue ? "#4caf50" : "#ff9800",
+                    transition: "width 1s linear",
+                  }}
+                />
               </div>
             </div>
 
-            {!hasAnswered && <p style={{ color: "orange", fontSize: "0.9rem", marginTop: "10px" }}>⚠️ Selecciona una respuesta.</p>}
-            {hasAnswered && !timeCompleted && <p style={{ color: "#2196f3", fontSize: "0.9rem", marginTop: "10px" }}>⏳ Analizando emociones... espera el temporizador.</p>}
+            {!hasAnswered && (
+              <p
+                style={{
+                  color: "orange",
+                  fontSize: "0.9rem",
+                  marginTop: "10px",
+                }}
+              >
+                ⚠️ Selecciona una respuesta.
+              </p>
+            )}
+            {hasAnswered && !timeCompleted && (
+              <p
+                style={{
+                  color: "#2196f3",
+                  fontSize: "0.9rem",
+                  marginTop: "10px",
+                }}
+              >
+                ⏳ Analizando emociones... espera el temporizador.
+              </p>
+            )}
 
             <div style={{ marginTop: "20px" }}>
               <button
@@ -598,10 +667,14 @@ export const EmotionDetector: React.FC = () => {
                 style={{
                   opacity: canContinue ? 1 : 0.5,
                   cursor: canContinue ? "pointer" : "not-allowed",
-                  width: "100%"
+                  width: "100%",
                 }}
               >
-                {submitting ? "Enviando..." : (isLastQuestion ? "Finalizar Cuestionario" : "Siguiente Pregunta")}
+                {submitting
+                  ? "Enviando..."
+                  : isLastQuestion
+                  ? "Finalizar Cuestionario"
+                  : "Siguiente Pregunta"}
               </button>
             </div>
           </section>
@@ -620,7 +693,10 @@ export const EmotionDetector: React.FC = () => {
     <div className="completed-page">
       <div className="completed-card">
         <h2>¡Cuestionario completado!</h2>
-        <p>Gracias por completar la evaluación. Tus respuestas han sido registradas y procesadas.</p>
+        <p>
+          Gracias por completar la evaluación. Tus respuestas han sido
+          registradas y procesadas.
+        </p>
         <button className="btn-view-results" onClick={handleViewResults}>
           Ver Resultados
         </button>
@@ -628,4 +704,3 @@ export const EmotionDetector: React.FC = () => {
     </div>
   );
 };
-
