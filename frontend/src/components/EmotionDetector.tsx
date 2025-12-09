@@ -320,7 +320,7 @@ export const EmotionDetector: React.FC = () => {
     navigate("/results", { state: resultsData });
   };
 
-  /*const renderCameraPanel = () => (
+  const renderCameraPanel = () => (
     <div className="video-card">
       <div className="video-wrapper">
         <video ref={videoRef} className="emotion-video" muted playsInline />
@@ -333,36 +333,10 @@ export const EmotionDetector: React.FC = () => {
         {step === "questionnaire" && <span style={{color: "red", fontWeight: "bold"}}>🔴 REC</span>}
       </div>
     </div>
-  );*/
-
-
-  // Componente visual reutilizable para la cámara
-  const renderCameraPanel = () => (
-    <div className="video-card">
-      <div className="video-wrapper">
-        {/* 👇 AQUÍ ESTÁ EL CAMBIO: Agregamos 'autoPlay' */}
-        <video 
-          ref={videoRef} 
-          className="emotion-video" 
-          autoPlay 
-          muted 
-          playsInline 
-        />
-        <canvas ref={canvasRef} className="emotion-canvas" />
-        
-        {/* Placeholder de carga */}
-        {!loaded && <div className="video-placeholder">Cargando Modelos IA...</div>}
-
-        
-
-      </div>
-      <div className="camera-stats">
-        <span>FPS: {fps}</span>
-        <span>Res: {resolution.width}x{resolution.height}</span>
-        {step === "questionnaire" && <span style={{color: "red", fontWeight: "bold"}}>🔴 GRABANDO</span>}
-      </div>
-    </div>
   );
+
+
+  
 
   /** ========================================================
    * RENDERIZADO POR PASOS
