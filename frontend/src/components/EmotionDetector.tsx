@@ -40,13 +40,11 @@ export const EmotionDetector: React.FC = () => {
   
   // 🔥 Control de grabación
   const isRecordingRef = useRef(false);
-  const isMountedRef = useRef(true); // Para evitar memory leaks al desmontar
+  const isMountedRef = useRef(true); 
 
   const [loaded, setLoaded] = useState(false);
-  // Eliminamos smoothBuffer del estado para evitar re-renders masivos
-  // Usamos ref para cálculos internos
-  const smoothBufferRef = useRef<any[]>([]); 
-  const [smoothedEmotion, setSmoothedEmotion] = useState<any>(null); // Solo para visualización
+  // Eliminada la variable smoothBufferRef que causaba el error
+  const [smoothedEmotion, setSmoothedEmotion] = useState<any>(null); 
   
   const [fps, setFps] = useState(0);
   const [resolution, setResolution] = useState({ width: 0, height: 0 });
@@ -83,7 +81,6 @@ export const EmotionDetector: React.FC = () => {
   const loadModels = async () => {
     try {
       await Promise.all([
-        // Usamos TinyFaceDetector que es mucho más rápido
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
         faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
@@ -103,7 +100,7 @@ export const EmotionDetector: React.FC = () => {
           width: { ideal: 320 }, 
           height: { ideal: 240 }, 
           facingMode: "user",
-          frameRate: { ideal: 15, max: 24 } // Limitamos FPS desde la cámara
+          frameRate: { ideal: 15, max: 24 } 
         },
       });
 
@@ -173,7 +170,6 @@ export const EmotionDetector: React.FC = () => {
       }
 
       // 2. DETECCIÓN LIGERA
-      // inputSize: 160 es muy rápido. Si quieres más precisión usa 224.
       const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 });
       
       try {
@@ -193,24 +189,21 @@ export const EmotionDetector: React.FC = () => {
         const ctx = canvas.getContext("2d");
         
         if (ctx) {
-            // Limpiar menos agresivamente o solo dibujar si hay detección
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (detection) {
                 const resized = faceapi.resizeResults(detection, displaySize);
                 faceapi.draw.drawDetections(canvas, resized);
-                // Ocultamos landmarks para ganar rendimiento, descomenta si los necesitas visualmente
                 // faceapi.draw.drawFaceLandmarks(canvas, resized); 
                 
                 const expressions = resized.expressions;
 
                 // 3. ACTUALIZAR UI (JSON) SOLO 2 VECES POR SEGUNDO
-                // Esto evita que React se trabe re-renderizando texto a 60fps
                 if (now - lastUiUpdate > 500) {
                    setSmoothedEmotion(expressions);
                    lastUiUpdate = now;
                 }
 
-                // 4. ENVIAR A SERVIDOR SOLO SI ESTAMOS GRABANDO Y HA PASADO EL TIEMPO (500ms)
+                // 4. ENVIAR A SERVIDOR SOLO SI ESTAMOS GRABANDO Y HA PASADO EL TIEMPO
                 if (isRecordingRef.current && (now - lastSend > 500)) {
                     const payload = {
                         user_id: Number(userId) || 0,
@@ -218,7 +211,6 @@ export const EmotionDetector: React.FC = () => {
                         emotions: expressions,
                         timestamp: Date.now() / 1000,
                     };
-                    // Enviamos sin 'await' para no bloquear el loop
                     sendEmotionHTTP(payload).catch(console.error);
                     sendWS(payload);
                     lastSend = now;
@@ -229,7 +221,6 @@ export const EmotionDetector: React.FC = () => {
           console.error("Error en ciclo de detección:", error);
       }
 
-      // Siguiente frame
       requestAnimationFrame(processVideo);
     };
 
@@ -239,7 +230,6 @@ export const EmotionDetector: React.FC = () => {
 
     return () => {
       isActive = false;
-      // Detener video
       if (videoRef.current && videoRef.current.srcObject) {
          (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
       }
