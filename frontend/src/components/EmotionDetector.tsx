@@ -320,26 +320,53 @@ export const EmotionDetector: React.FC = () => {
     navigate("/results", { state: resultsData });
   };
 
-  // Componente  reutilizable para la cámara
+  /*const renderCameraPanel = () => (
+    <div className="video-card">
+      <div className="video-wrapper">
+        <video ref={videoRef} className="emotion-video" muted playsInline />
+        <canvas ref={canvasRef} className="emotion-canvas" />
+        {!loaded && <div className="video-placeholder">Cargando modelos...</div>}
+      </div>
+      <div className="camera-stats">
+        <span>FPS: {fps}</span>
+        <span>Res: {resolution.width} x {resolution.height}</span>
+        {step === "questionnaire" && <span style={{color: "red", fontWeight: "bold"}}>🔴 REC</span>}
+      </div>
+    </div>
+  );*/
+
+
+  // Componente visual reutilizable para la cámara
   const renderCameraPanel = () => (
     <div className="video-card">
       <div className="video-wrapper">
-        <video ref={videoRef} className="emotion-video" muted playsInline autoPlay />
+        {/* 👇 AQUÍ ESTÁ EL CAMBIO: Agregamos 'autoPlay' */}
+        <video 
+          ref={videoRef} 
+          className="emotion-video" 
+          autoPlay 
+          muted 
+          playsInline 
+        />
         <canvas ref={canvasRef} className="emotion-canvas" />
+        
+        {/* Placeholder de carga */}
         {!loaded && <div className="video-placeholder">Cargando Modelos IA...</div>}
+
         {/* ⚠️ ALERTA DE NO ROSTRO ⚠️ */}
         {loaded && !isFaceDetected && (
-          <div className="video-warning-overlay">
-            <div className="warning-icon">⚠️</div>
-            <div className="warning-text">Rostro no detectado</div>
-            <div className="warning-subtext">Por favor, ubícate frente a la cámara y asegúrate de tener buena luz.</div>
-          </div>
+            <div className="video-warning-overlay">
+                <div className="warning-icon">⚠️</div>
+                <div className="warning-text">Rostro no detectado</div>
+                <div className="warning-subtext">Por favor, ubícate frente a la cámara y asegúrate de tener buena luz.</div>
+            </div>
         )}
+
       </div>
       <div className="camera-stats">
         <span>FPS: {fps}</span>
         <span>Res: {resolution.width}x{resolution.height}</span>
-        {step === "questionnaire" && <span style={{ color: "red", fontWeight: "bold" }}>🔴 GRABANDO</span>}
+        {step === "questionnaire" && <span style={{color: "red", fontWeight: "bold"}}>🔴 GRABANDO</span>}
       </div>
     </div>
   );
