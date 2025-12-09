@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { sendEmotionHTTP } from "../services/emotionService";
-import { sendWS } from "../services/wsService";
+//import { sendWS } from "../services/wsService";
 import { submitPSS } from "../services/pssService";
 import { useNavigate } from "react-router-dom";
 import "../styles/EmotionDetector.css";
@@ -268,15 +268,15 @@ export const EmotionDetector: React.FC = () => {
           // ... dentro de la función detect ...
 
           // Esto hace el JSON mucho más ligero para la red
-            const cleanExpressions = {
-                neutral: Number(expressions.neutral.toFixed(4)),
-                happy: Number(expressions.happy.toFixed(4)),
-                sad: Number(expressions.sad.toFixed(4)),
-                angry: Number(expressions.angry.toFixed(4)),
-                fearful: Number(expressions.fearful.toFixed(4)),
-                disgusted: Number(expressions.disgusted.toFixed(4)),
-                surprised: Number(expressions.surprised.toFixed(4))
-            };
+          const cleanExpressions = {
+            neutral: Number(expressions.neutral.toFixed(4)),
+            happy: Number(expressions.happy.toFixed(4)),
+            sad: Number(expressions.sad.toFixed(4)),
+            angry: Number(expressions.angry.toFixed(4)),
+            fearful: Number(expressions.fearful.toFixed(4)),
+            disgusted: Number(expressions.disgusted.toFixed(4)),
+            surprised: Number(expressions.surprised.toFixed(4))
+          };
 
           // 🏆 LO MEJOR: 1000ms (1 segundo)
           // Esto equilibra tener buenos datos sin tumbar el servidor.
@@ -357,46 +357,46 @@ export const EmotionDetector: React.FC = () => {
       return sum + val;
     }, 0);
   };
-/*
+  /*
+    const handleNextOrFinish = async () => {
+      const isLastQuestion = currentIndex === QUESTIONS.length - 1;
+  
+      if (!isLastQuestion) {
+        setCurrentIndex((prev) => prev + 1);
+        return;
+      }
+  
+      
+  
+      if (!userId) {
+        alert("No se encontró el usuario. Inicia sesión nuevamente.");
+        return;
+      }
+  
+      setSubmitting(true);
+      // Dejamos de grabar inmediatamente al terminar
+      isRecordingRef.current = false;
+  
+      const pss_score = calculatePSSScore();
+  
+      try {
+        const res = await submitPSS({
+          user_id: userId,
+          session_id: sessionId,
+          pss_score,
+        });
+  
+        setResultsData(res.data);
+        setStep("completed");
+      } catch (err) {
+        console.error(err);
+        alert("Error al enviar el cuestionario. Inténtalo de nuevo.");
+      } finally {
+        setSubmitting(false);
+      }
+    };*/
+
   const handleNextOrFinish = async () => {
-    const isLastQuestion = currentIndex === QUESTIONS.length - 1;
-
-    if (!isLastQuestion) {
-      setCurrentIndex((prev) => prev + 1);
-      return;
-    }
-
-    
-
-    if (!userId) {
-      alert("No se encontró el usuario. Inicia sesión nuevamente.");
-      return;
-    }
-
-    setSubmitting(true);
-    // Dejamos de grabar inmediatamente al terminar
-    isRecordingRef.current = false;
-
-    const pss_score = calculatePSSScore();
-
-    try {
-      const res = await submitPSS({
-        user_id: userId,
-        session_id: sessionId,
-        pss_score,
-      });
-
-      setResultsData(res.data);
-      setStep("completed");
-    } catch (err) {
-      console.error(err);
-      alert("Error al enviar el cuestionario. Inténtalo de nuevo.");
-    } finally {
-      setSubmitting(false);
-    }
-  };*/
-
- const handleNextOrFinish = async () => {
     const isLastQuestion = currentIndex === QUESTIONS.length - 1;
 
     // 1. Si no es la última pregunta, solo avanzamos (Rápido)
@@ -413,7 +413,7 @@ export const EmotionDetector: React.FC = () => {
 
     // 🔥 CAMBIO CRÍTICO 1: Bloqueo Inmediato
     // Detenemos la grabación YA, para que no compita por internet.
-    isRecordingRef.current = false; 
+    isRecordingRef.current = false;
     setSubmitting(true); // Deshabilitamos el botón visualmente
 
     // 🔥 CAMBIO CRÍTICO 2: "Cool-down" (Enfriamiento)
@@ -437,9 +437,9 @@ export const EmotionDetector: React.FC = () => {
     } catch (err) {
       console.error(err);
       // Si falla, permitimos intentar de nuevo
-      setSubmitting(false); 
+      setSubmitting(false);
       alert("La red está congestionada. Por favor, presiona 'Finalizar' nuevamente.");
-    } 
+    }
     // Nota: Quité el 'finally' para no reactivar el botón si ya pasamos a "completed"
   };
 
