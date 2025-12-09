@@ -95,22 +95,22 @@ export const EmotionDetector: React.FC = () => {
       ]);
 
       if (isMountedRef.current) {
-          setLoaded(true);
-          console.log("✅ Modelos cargados");
+        setLoaded(true);
+        console.log("✅ Modelos cargados");
       }
     } catch (err) {
       console.error("⚠️ Error WebGL/Carga, intentando modo CPU...", err);
       // Si falla, forzamos el uso de CPU (más lento pero compatible)
       await faceapi.tf.setBackend('cpu');
       await faceapi.tf.ready();
-      
+
       // Reintentamos la carga
       await Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
         faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
       ]);
-      
+
       if (isMountedRef.current) setLoaded(true);
       console.log("✅ Modelos cargados (Modo CPU)");
     }
@@ -124,28 +124,39 @@ export const EmotionDetector: React.FC = () => {
           width: { ideal: 320 },
           height: { ideal: 240 },
           facingMode: "user",
-          frameRate: { ideal: 15, max: 24 } // Limitamos FPS desde hardware
+          frameRate: { ideal: 15, max: 24 },
         },
       });
 
-      if (!videoRef.current) return;
-      videoRef.current.srcObject = stream;
+      const video = videoRef.current;
+      if (!video) return;
 
-      // AGREGAR ESTO: Promesa explícita de play
-      await videoRef.current.play().catch(e => console.error("Error al reproducir:", e));
+      video.srcObject = stream;
 
-      videoRef.current.onloadedmetadata = () => {
-        if (!videoRef.current) return;
+      // 🔹 Primero configuramos el handler
+      video.onloadedmetadata = () => {
+        // Cuando ya haya metadatos, el video tiene width/height reales
         setResolution({
-          width: videoRef.current.videoWidth,
-          height: videoRef.current.videoHeight
+          width: video.videoWidth,
+          height: video.videoHeight,
         });
-        videoRef.current.play();
+
+        // Aseguramos que empiece a reproducirse
+        video.play().catch((e) => console.error("Error al reproducir:", e));
       };
+
+      // 🔹 Esto dispara la carga de metadatos
+      // (aunque no es estrictamente necesario hacer await aquí)
+      await video.play().catch(() => {
+        // algunos navegadores no permiten autoplay sin interacción;
+        // si falla, se corregirá cuando el usuario pulse un botón
+      });
+
     } catch (err) {
       console.error("Error iniciando cámara:", err);
     }
   };
+
 
   /** ⏱️ Timer del cuestionario */
   useEffect(() => {
@@ -344,32 +355,32 @@ export const EmotionDetector: React.FC = () => {
     <div className="video-card">
       <div className="video-wrapper">
         {/* 👇 AQUÍ ESTÁ EL CAMBIO: Agregamos 'autoPlay' */}
-        <video 
-          ref={videoRef} 
-          className="emotion-video" 
-          autoPlay 
-          muted 
-          playsInline 
+        <video
+          ref={videoRef}
+          className="emotion-video"
+          autoPlay
+          muted
+          playsInline
         />
         <canvas ref={canvasRef} className="emotion-canvas" />
-        
+
         {/* Placeholder de carga */}
         {!loaded && <div className="video-placeholder">Cargando Modelos IA...</div>}
 
         {/* ⚠️ ALERTA DE NO ROSTRO ⚠️ */}
         {loaded && !isFaceDetected && (
-            <div className="video-warning-overlay">
-                <div className="warning-icon">⚠️</div>
-                <div className="warning-text">Rostro no detectado</div>
-                <div className="warning-subtext">Por favor, ubícate frente a la cámara y asegúrate de tener buena luz.</div>
-            </div>
+          <div className="video-warning-overlay">
+            <div className="warning-icon">⚠️</div>
+            <div className="warning-text">Rostro no detectado</div>
+            <div className="warning-subtext">Por favor, ubícate frente a la cámara y asegúrate de tener buena luz.</div>
+          </div>
         )}
 
       </div>
       <div className="camera-stats">
         <span>FPS: {fps}</span>
         <span>Res: {resolution.width}x{resolution.height}</span>
-        {step === "questionnaire" && <span style={{color: "red", fontWeight: "bold"}}>🔴 GRABANDO</span>}
+        {step === "questionnaire" && <span style={{ color: "red", fontWeight: "bold" }}>🔴 GRABANDO</span>}
       </div>
     </div>
   );
