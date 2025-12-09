@@ -353,14 +353,7 @@ export const EmotionDetector: React.FC = () => {
         {/* Placeholder de carga */}
         {!loaded && <div className="video-placeholder">Cargando Modelos IA...</div>}
 
-        {/* ⚠️ ALERTA DE NO ROSTRO ⚠️ */}
-        {loaded && !isFaceDetected && (
-            <div className="video-warning-overlay">
-                <div className="warning-icon">⚠️</div>
-                <div className="warning-text">Rostro no detectado</div>
-                <div className="warning-subtext">Por favor, ubícate frente a la cámara y asegúrate de tener buena luz.</div>
-            </div>
-        )}
+        
 
       </div>
       <div className="camera-stats">
