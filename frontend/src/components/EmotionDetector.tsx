@@ -90,13 +90,13 @@ export const EmotionDetector: React.FC = () => {
     try {
       await Promise.all([
         // CAMBIO IMPORTANTE: Usamos el modelo Tiny
-        /*faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL), // Ojo: a veces se necesita el "tiny" landmark también, pero prueba con este primero
-        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),*/
+        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
 
-        faceapi.loadSsdMobilenetv1Model(MODEL_URL),
+        /*faceapi.loadSsdMobilenetv1Model(MODEL_URL),
         faceapi.loadFaceLandmarkModel(MODEL_URL),
-        faceapi.loadFaceExpressionModel(MODEL_URL),
+        faceapi.loadFaceExpressionModel(MODEL_URL),*/
 
       ]);
       setLoaded(true);
@@ -111,28 +111,35 @@ export const EmotionDetector: React.FC = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
+          width: { ideal: 320 },       // 🔹 antes 640
+          height: { ideal: 240 },      // 🔹 antes 480
           facingMode: "user",
+          frameRate: { ideal: 15, max: 20 }, // 🔹 limitamos FPS de la cámara
         },
+        audio: false,
       });
 
-      if (!videoRef.current) return;
-      videoRef.current.srcObject = stream;
+      const video = videoRef.current;
+      if (!video) return;
 
-      videoRef.current.onloadedmetadata = () => {
-        if (!videoRef.current) return;
+      video.srcObject = stream;
+
+      video.onloadedmetadata = () => {
         setResolution({
-          width: videoRef.current.videoWidth,
-          height: videoRef.current.videoHeight
+          width: video.videoWidth,
+          height: video.videoHeight,
         });
-        videoRef.current.play();
-      };
 
+        video
+          .play()
+          .then(() => console.log("▶️ Video reproduciéndose"))
+          .catch((e) => console.error("Error al reproducir video:", e));
+      };
     } catch (err) {
       console.error("Error iniciando cámara:", err);
     }
   };
+
 
   /** ⏱️ Lógica del Timer */
   useEffect(() => {
