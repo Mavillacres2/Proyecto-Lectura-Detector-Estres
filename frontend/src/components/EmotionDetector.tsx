@@ -90,14 +90,14 @@ export const EmotionDetector: React.FC = () => {
     try {
       await Promise.all([
         // CAMBIO IMPORTANTE: Usamos el modelo Tiny
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        /*faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL), // Ojo: a veces se necesita el "tiny" landmark también, pero prueba con este primero
-        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
-        /*
-                faceapi.loadSsdMobilenetv1Model(MODEL_URL),
-                faceapi.loadFaceLandmarkModel(MODEL_URL),
-                faceapi.loadFaceExpressionModel(MODEL_URL),
-                */
+        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),*/
+
+        faceapi.loadSsdMobilenetv1Model(MODEL_URL),
+        faceapi.loadFaceLandmarkModel(MODEL_URL),
+        faceapi.loadFaceExpressionModel(MODEL_URL),
+
       ]);
       setLoaded(true);
       console.log("✅ Modelos cargados (Tiny Version)");
