@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { sendEmotionHTTP } from "../services/emotionService";
-// import { sendWS } from "../services/wsService"; // ⚡ OPTIMIZACIÓN: Desactivamos WS
+// import { sendWS } from "../services/wsService"; // WS Desactivado para optimización
 import { submitPSS } from "../services/pssService";
 import { useNavigate } from "react-router-dom";
 import "../styles/EmotionDetector.css";
@@ -34,17 +34,22 @@ const scaleOptions = [
   { label: "Muy a menudo", value: 4 },
 ];
 
+// Configuración ligera
+const DETECTION_INTERVAL_MS = 100; // 10 detecciones por segundo
+const TINY_INPUT_SIZE = 160;       // Resolución interna baja para velocidad
+
 export const EmotionDetector: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
+  const detectionIntervalRef = useRef<number | null>(null);
+
   const isRecordingRef = useRef(false);
-  const isMountedRef = useRef(true); 
-  const lastFaceDetectedRef = useRef<number>(Date.now()); 
+  const isMountedRef = useRef(true);
+  const lastFaceDetectedRef = useRef<number>(Date.now());
   
   const [isFaceDetected, setIsFaceDetected] = useState(true);
   const [loaded, setLoaded] = useState(false);
-  const [smoothedEmotion, setSmoothedEmotion] = useState<any>(null); 
+  const [smoothedEmotion, setSmoothedEmotion] = useState<any>(null);
   const [fps, setFps] = useState(0);
   const [resolution, setResolution] = useState({ width: 0, height: 0 });
 
@@ -76,23 +81,22 @@ export const EmotionDetector: React.FC = () => {
     }
   }, [step]);
 
-  /** 1. Cargar modelos con protección anti-fallo (CPU) */
+  /** 1. Cargar modelos (Tiny Face Detector) */
   const loadModels = async () => {
     try {
       await Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL), 
         faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
       ]);
       
-      // Intentar WebGL, si falla usar CPU
+      // Fallback a CPU si WebGL falla (para compatibilidad)
       try {
-          await faceapi.tf.setBackend('webgl');
-          await faceapi.tf.ready();
+        await faceapi.tf.setBackend('webgl');
+        await faceapi.tf.ready();
       } catch (e) {
-          console.warn("⚠️ WebGL falló, usando CPU", e);
-          await faceapi.tf.setBackend('cpu');
-          await faceapi.tf.ready();
+        console.warn("WebGL no disponible, usando CPU");
+        await faceapi.tf.setBackend('cpu');
       }
 
       if (isMountedRef.current) {
@@ -114,12 +118,13 @@ export const EmotionDetector: React.FC = () => {
           facingMode: "user",
           frameRate: { ideal: 15, max: 24 } 
         },
+        audio: false,
       });
 
       if (!videoRef.current) return;
       videoRef.current.srcObject = stream;
       
-      // Forzar play para evitar pantalla gris
+      // 🔥 FIX: Forzar play explícitamente
       await videoRef.current.play().catch(e => console.error("Error play:", e));
 
       videoRef.current.onloadedmetadata = () => {
@@ -134,6 +139,7 @@ export const EmotionDetector: React.FC = () => {
     }
   };
 
+  /** ⏱️ Timer */
   useEffect(() => {
     if (step !== "questionnaire") return;
     setSeconds(0);
@@ -143,34 +149,42 @@ export const EmotionDetector: React.FC = () => {
     return () => clearInterval(intervalId);
   }, [currentIndex, step]); 
 
-  /** 🔄 LOOP DE DETECCIÓN INTELIGENTE */
-  useEffect(() => {
-    if (!loaded) return;
+  /** 🔄 LOOP DE DETECCIÓN (CORREGIDO) */
+  const runDetectionLoop = () => {
+    detectionIntervalRef.current = 1; // Flag activo
 
-    let isActive = true;
     let lastDetection = 0;
     let lastSend = 0;
-    let lastUiUpdate = 0;
     let frameCount = 0;
     let lastFpsTime = performance.now();
 
-    const processVideo = async () => {
-      if (!isActive || !isMountedRef.current) return;
-      
-      if (!videoRef.current || !canvasRef.current) {
-          requestAnimationFrame(processVideo);
+    const detect = async () => {
+      // Validaciones de seguridad
+      if (!videoRef.current || !canvasRef.current || !loaded || !detectionIntervalRef.current) return;
+
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+
+      if (step !== "questionnaire") {
+          requestAnimationFrame(detect);
+          return;
+      }
+
+      if (video.paused || video.ended || video.videoWidth === 0) {
+          requestAnimationFrame(detect);
           return;
       }
 
       const now = performance.now();
 
-      // Freno de detección (10 FPS máximo para no quemar CPU)
-      if (now - lastDetection < 100) {
-        requestAnimationFrame(processVideo);
+      // Freno de Detección (100ms)
+      if (now - lastDetection < DETECTION_INTERVAL_MS) {
+        requestAnimationFrame(detect);
         return;
       }
       lastDetection = now;
 
+      // Calcular FPS
       frameCount++;
       if (now - lastFpsTime >= 1000) {
         setFps(Math.round((frameCount * 1000) / (now - lastFpsTime)));
@@ -178,92 +192,99 @@ export const EmotionDetector: React.FC = () => {
         lastFpsTime = now;
       }
 
-      const video = videoRef.current;
-      
-      if (video.paused || video.ended || video.videoWidth === 0) {
-          requestAnimationFrame(processVideo);
+      // Ajustar Canvas
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
+
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) {
+          requestAnimationFrame(detect);
           return;
       }
 
-      const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 });
-      
+      // 🔥 FIX CLAVE: NO DIBUJAR EL VIDEO AQUÍ
+      // ctx.drawImage(...) <-- ELIMINADO. Esto causaba la pantalla gris.
+      // Solo limpiamos para dibujar los cuadros encima del video nativo.
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Opciones Tiny
+      const options = new faceapi.TinyFaceDetectorOptions({ 
+          inputSize: TINY_INPUT_SIZE, 
+          scoreThreshold: 0.4 
+      });
+
       try {
         const detection = await faceapi
             .detectSingleFace(video, options)
             .withFaceLandmarks()
             .withFaceExpressions();
 
-        const canvas = canvasRef.current;
-        const displaySize = { width: video.videoWidth, height: video.videoHeight };
-        
-        if (canvas.width !== displaySize.width) canvas.width = displaySize.width;
-        if (canvas.height !== displaySize.height) canvas.height = displaySize.height;
+        if (detection) {
+            // Rostro encontrado
+            lastFaceDetectedRef.current = Date.now();
+            setIsFaceDetected(true);
 
-        faceapi.matchDimensions(canvas, displaySize);
-        const ctx = canvas.getContext("2d");
-        
-        if (ctx) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const resized = faceapi.resizeResults(detection, { width: canvas.width, height: canvas.height });
             
-            if (detection) {
-                lastFaceDetectedRef.current = Date.now();
-                setIsFaceDetected(true);
+            // Dibujar solo cajas y expresiones
+            faceapi.draw.drawDetections(canvas, resized);
+            // faceapi.draw.drawFaceLandmarks(canvas, resized); // Opcional, consume CPU
 
-                const resized = faceapi.resizeResults(detection, displaySize);
-                faceapi.draw.drawDetections(canvas, resized);
-                
-                const expressions = resized.expressions;
+            const expressions = resized.expressions;
+            setSmoothedEmotion(expressions);
 
-                // Actualizar UI (2 veces por seg)
-                if (now - lastUiUpdate > 500) {
-                   setSmoothedEmotion(expressions);
-                   lastUiUpdate = now;
-                }
-
-                // ⚡ OPTIMIZACIÓN CRÍTICA: Enviar cada 3 SEGUNDOS (3000ms)
-                if (isRecordingRef.current && (now - lastSend > 3000)) {
-                    const payload = {
-                        user_id: Number(userId) || 0,
-                        session_id: sessionId,
-                        emotions: expressions,
-                        timestamp: Date.now() / 1000,
-                    };
-                    // Enviamos SOLO por HTTP (más seguro para datos)
-                    sendEmotionHTTP(payload).catch(() => {}); 
-                    
-                    // ⚡ COMENTADO EL WEBSOCKET PARA NO SATURAR
-                    // sendWS(payload); 
-                    
-                    lastSend = now;
-                }
-            } else {
-                if (Date.now() - lastFaceDetectedRef.current > 2000) {
-                    setIsFaceDetected(false);
-                }
+            // Enviar datos cada 3 SEGUNDOS (3000ms)
+            if (isRecordingRef.current && (now - lastSend > 3000)) {
+                const payload = {
+                    user_id: Number(userId) || 0,
+                    session_id: sessionId,
+                    emotions: expressions,
+                    timestamp: Date.now() / 1000,
+                };
+                // Solo HTTP para fiabilidad
+                sendEmotionHTTP(payload).catch(() => {});
+                lastSend = now;
+            }
+        } else {
+            // Rostro perdido > 2 seg
+            if (Date.now() - lastFaceDetectedRef.current > 2000) {
+                setIsFaceDetected(false);
             }
         }
-      } catch (error) {
-          // Ignoramos errores de detección puntual
+      } catch (e) {
+        // Silencio errores puntuales
       }
 
-      requestAnimationFrame(processVideo);
+      requestAnimationFrame(detect);
     };
 
-    startCamera().then(() => {
-        processVideo();
-    });
-
-    return () => {
-      isActive = false;
-      if (videoRef.current && videoRef.current.srcObject) {
-         (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
-      }
-    };
-  }, [loaded]);
+    detect();
+  };
 
   useEffect(() => { loadModels(); }, []);
 
-  // ... (Resto del código de respuestas, igual que antes) ...
+  // Iniciar cámara y loop
+  useEffect(() => {
+    if (!loaded) return;
+    
+    startCamera();
+
+    if (step === "questionnaire") {
+        runDetectionLoop();
+    }
+
+    return () => {
+        detectionIntervalRef.current = null;
+        if (videoRef.current?.srcObject) {
+            (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+        }
+    };
+  }, [loaded, step]);
+
+
+  /** ======= LÓGICA DE RESPUESTAS ======= */
 
   const handleAnswerChange = (value: number) => {
     setAnswers((prev) => { const u = [...prev]; u[currentIndex] = value; return u; });
@@ -295,7 +316,7 @@ export const EmotionDetector: React.FC = () => {
       setStep("completed");
     } catch (err) {
       console.error(err);
-      alert("Error al enviar resultados. Verifica tu conexión.");
+      alert("Error al enviar resultados.");
     } finally {
       setSubmitting(false);
     }
@@ -306,21 +327,25 @@ export const EmotionDetector: React.FC = () => {
     navigate("/results", { state: resultsData });
   };
 
+  // Componente visual
   const renderCameraPanel = () => (
     <div className="video-card">
       <div className="video-wrapper">
+        {/* 👇 VIDEO: Visible y con autoplay */}
         <video 
           ref={videoRef} 
           className="emotion-video" 
           autoPlay 
           muted 
           playsInline 
-          style={{ width: "100%", display: "block" }} 
+          style={{ width: "100%", display: "block", objectFit: "cover" }}
         />
+        {/* CANVAS: Transparente encima del video */}
         <canvas ref={canvasRef} className="emotion-canvas" />
         
         {!loaded && <div className="video-placeholder">Cargando IA...</div>}
 
+        {/* Alerta */}
         {loaded && !isFaceDetected && (
             <div className="video-warning-overlay">
                 <div className="warning-icon">⚠️</div>
@@ -332,7 +357,7 @@ export const EmotionDetector: React.FC = () => {
       <div className="camera-stats">
         <span>FPS: {fps}</span>
         <span>Res: {resolution.width}x{resolution.height}</span>
-        {step === "questionnaire" && <span style={{color: "red", fontWeight: "bold"}}>🔴 GRABANDO</span>}
+        {step === "questionnaire" && <span style={{color: "red", fontWeight: "bold"}}>🔴 REC</span>}
       </div>
     </div>
   );
@@ -421,7 +446,7 @@ export const EmotionDetector: React.FC = () => {
   return (
     <div className="completed-page">
       <div className="completed-card">
-        <h2>¡Completado!</h2>
+        <h2>¡Cuestionario completado!</h2>
         <button className="btn-view-results" onClick={handleViewResults}>Ver Resultados</button>
       </div>
     </div>
