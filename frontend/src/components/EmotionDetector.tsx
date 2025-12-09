@@ -125,6 +125,7 @@ export const EmotionDetector: React.FC = () => {
           width: videoRef.current.videoWidth,
           height: videoRef.current.videoHeight
         });
+        videoRef.current.play();
       };
     } catch (err) {
       console.error("Error iniciando cámara:", err);
