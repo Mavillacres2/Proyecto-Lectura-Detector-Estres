@@ -9,10 +9,9 @@ from datetime import datetime
 from app.database.connection import SessionLocal
 from app.database.mongo import mongo_db
 from app.models.user import User
-# from app.models.stress_evaluation import StressEvaluation  <-- YA NO LO USAMOS PARA ESCRIBIR
+# from app.models.stress_evaluation import StressEvaluation  <-- YA NO LO USAMOS
 
 router = APIRouter(prefix="/pss", tags=["pss"])
-
 
 def get_db():
     db = SessionLocal()
@@ -21,31 +20,23 @@ def get_db():
     finally:
         db.close()
 
-
 class PSSSubmitPayload(BaseModel):
     user_id: int
     session_id: str
-    pss_score: conint(ge=0, le=40)  # PSS-10
-
+    pss_score: conint(ge=0, le=40)
 
 def categorize_pss(score: int) -> str:
-    if score <= 13:
-        return "bajo"
-    elif score <= 26:
-        return "medio"
-    else:
-        return "alto"
-
+    if score <= 13: return "bajo"
+    elif score <= 26: return "medio"
+    else: return "alto"
 
 STRESS_EMOTIONS = {"angry", "disgusted", "fearful"}
-
 
 def compute_emotion_stats(session_id: str):
     # 1. Buscamos las emociones crudas en Mongo
     docs = list(mongo_db["emotions"].find({"session_id": session_id}))
 
     if not docs:
-        # Si no hay datos, retornamos ceros por defecto para no romper el flujo
         keys = ["angry", "disgusted", "fearful", "happy", "sad", "surprised", "neutral"]
         return {k: 0.0 for k in keys}, 0.0
 
@@ -57,10 +48,8 @@ def compute_emotion_stats(session_id: str):
     for doc in docs:
         emotions = doc["emotions"]
         total_frames += 1
-
         for k in keys:
             totals[k] += float(emotions.get(k, 0.0))
-
         dominant = max(emotions, key=emotions.get)
         if dominant in STRESS_EMOTIONS:
             stress_frames += 1
@@ -70,15 +59,10 @@ def compute_emotion_stats(session_id: str):
 
     return averages, negative_ratio
 
-
 def level_from_ratio(r: float) -> str:
-    if r >= 0.75:
-        return "alto"
-    elif r >= 0.40:
-        return "medio"
-    else:
-        return "bajo"
-
+    if r >= 0.75: return "alto"
+    elif r >= 0.40: return "medio"
+    else: return "bajo"
 
 @router.post("/submit")
 def submit_pss(payload: PSSSubmitPayload, db: Session = Depends(get_db)):
@@ -94,7 +78,6 @@ def submit_pss(payload: PSSSubmitPayload, db: Session = Depends(get_db)):
     emotion_level = level_from_ratio(negative_ratio)
 
     # 3. GUARDAR RESULTADO EN MONGODB (En lugar de Postgres)
-    # Creamos un diccionario con todos los datos
     evaluation_doc = {
         "user_id": user.id,
         "session_id": payload.session_id,
@@ -114,10 +97,9 @@ def submit_pss(payload: PSSSubmitPayload, db: Session = Depends(get_db)):
         "created_at": datetime.utcnow()
     }
 
-    # Insertamos en una colección llamada 'stress_evaluations'
+    # Insertamos en la colección 'stress_evaluations'
     mongo_db["stress_evaluations"].insert_one(evaluation_doc)
 
-    # 4. Retornar al Frontend (Esto sigue igual)
     return {
         "pss_score": payload.pss_score,
         "pss_level": pss_level,
