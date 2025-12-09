@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { sendEmotionHTTP } from "../services/emotionService";
-// import { sendWS } from "../services/wsService"; // Desactivamos WS para estabilidad
+// import { sendWS } from "../services/wsService"; // Desactivado para no saturar con 15 usuarios
 import { submitPSS } from "../services/pssService";
 import { useNavigate } from "react-router-dom";
 import "../styles/EmotionDetector.css";
@@ -34,10 +34,10 @@ const scaleOptions = [
   { label: "Muy a menudo", value: 4 },
 ];
 
-// Configuración de rendimiento equilibrada
-const DETECTION_INTERVAL_MS = 100; // Detección visual rápida (fluidez)
-const NETWORK_SEND_INTERVAL_MS = 1000; // Enviar datos cada 1 segundo (estabilidad)
-const TINY_INPUT_SIZE = 160; 
+// ⚡ CONFIGURACIÓN DE RENDIMIENTO
+const VISUAL_DETECTION_MS = 100; // Detección visual rápida (10 FPS) para que se vea fluido
+const NETWORK_SEND_MS = 1000;    // Enviar datos a Mongo cada 1 segundo (Para aguantar 15 usuarios)
+const TINY_INPUT_SIZE = 160;     // Resolución ligera
 
 export const EmotionDetector: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -73,16 +73,17 @@ export const EmotionDetector: React.FC = () => {
     return () => { isMountedRef.current = false; };
   }, []);
 
+  // Sincronizar estado de grabación
   useEffect(() => {
     if (step === "questionnaire") {
         isRecordingRef.current = true;
-        console.log("🔴 REC: Dataset activo");
+        console.log("🔴 REC: Dataset activo (Guardando en Mongo)");
     } else {
         isRecordingRef.current = false;
     }
   }, [step]);
 
-  /** 1. Cargar modelos (con protección para pantalla gris/fallo GPU) */
+  /** 1. Cargar modelos (Con protección WebGL/CPU) */
   const loadModels = async () => {
     try {
       await Promise.all([
@@ -91,12 +92,12 @@ export const EmotionDetector: React.FC = () => {
         faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
       ]);
       
-      // Intentar WebGL, si falla usar CPU (evita que se cuelgue en laptops viejas)
+      // Intentar WebGL, si falla usar CPU
       try {
         await faceapi.tf.setBackend('webgl');
         await faceapi.tf.ready();
       } catch (e) {
-        console.warn("WebGL no disponible, usando CPU");
+        console.warn("⚠️ WebGL falló, usando CPU");
         await faceapi.tf.setBackend('cpu');
       }
 
@@ -109,7 +110,7 @@ export const EmotionDetector: React.FC = () => {
     }
   };
 
-  /** 2. Iniciar cámara */
+  /** 2. Iniciar cámara (Con corrección de pantalla gris) */
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -119,13 +120,13 @@ export const EmotionDetector: React.FC = () => {
           facingMode: "user",
           frameRate: { ideal: 15, max: 24 } 
         },
-        audio: false,
+        audio: false
       });
 
       if (!videoRef.current) return;
       videoRef.current.srcObject = stream;
       
-      // 🔥 Forzar play para evitar pantalla negra
+      // 🔥 FORZAR PLAY (Vital para que no se quede congelado)
       await videoRef.current.play().catch(e => console.error("Error play:", e));
 
       videoRef.current.onloadedmetadata = () => {
@@ -136,7 +137,7 @@ export const EmotionDetector: React.FC = () => {
         });
       };
     } catch (err) {
-      console.error("Error iniciando cámara:", err);
+      console.error("Error cámara:", err);
     }
   };
 
@@ -150,7 +151,7 @@ export const EmotionDetector: React.FC = () => {
     return () => clearInterval(intervalId);
   }, [currentIndex, step]); 
 
-  /** 🔄 LOOP DE DETECCIÓN (CORREGIDO PARA FLUIDEZ Y VISIBILIDAD) */
+  /** 🔄 LOOP DE DETECCIÓN (Fluidez Visual + Envío Seguro) */
   const runDetectionLoop = () => {
     detectionIntervalRef.current = 1;
 
@@ -160,6 +161,7 @@ export const EmotionDetector: React.FC = () => {
     let lastFpsTime = performance.now();
 
     const detect = async () => {
+      // Validaciones de seguridad
       if (!videoRef.current || !canvasRef.current || !loaded || !detectionIntervalRef.current) return;
 
       const video = videoRef.current;
@@ -178,8 +180,8 @@ export const EmotionDetector: React.FC = () => {
 
       const now = performance.now();
 
-      // Freno de Detección (100ms) - Mantiene la UI fluida
-      if (now - lastDetection < DETECTION_INTERVAL_MS) {
+      // Freno VISUAL (100ms - Rápido para que se vea bien)
+      if (now - lastDetection < VISUAL_DETECTION_MS) {
         requestAnimationFrame(detect);
         return;
       }
@@ -205,8 +207,7 @@ export const EmotionDetector: React.FC = () => {
           return;
       }
 
-      // 🔥 IMPORTANTE: Solo limpiamos el canvas. NO dibujamos el video aquí.
-      // Dejamos que la etiqueta <video> muestre la imagen real (esto arregla la pantalla gris).
+      // 🔥 LIMPIAR CANVAS (No dibujar video, dejar que <video> se muestre solo)
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const options = new faceapi.TinyFaceDetectorOptions({ 
@@ -221,37 +222,38 @@ export const EmotionDetector: React.FC = () => {
             .withFaceExpressions();
 
         if (detection) {
+            // Rostro encontrado
             lastFaceDetectedRef.current = Date.now();
             setIsFaceDetected(true);
 
             const resized = faceapi.resizeResults(detection, { width: canvas.width, height: canvas.height });
             
-            // Dibujar cuadros y puntos SOBRE el video
+            // Dibujar cuadros (Visual)
             faceapi.draw.drawDetections(canvas, resized);
-            // faceapi.draw.drawFaceLandmarks(canvas, resized); // Opcional
-
+            
             const expressions = resized.expressions;
             setSmoothedEmotion(expressions);
 
-            // ⚡ CONTROL DE ENVÍO: Cada 1 segundo (1000ms)
-            if (isRecordingRef.current && (now - lastSend > NETWORK_SEND_INTERVAL_MS)) {
+            // ⚡ ENVÍO DE DATOS A MONGO (Cada 1 segundo para no bloquear)
+            if (isRecordingRef.current && (now - lastSend > NETWORK_SEND_MS)) {
                 const payload = {
                     user_id: Number(userId) || 0,
                     session_id: sessionId,
                     emotions: expressions,
                     timestamp: Date.now() / 1000,
                 };
+                // Enviamos SOLO por HTTP (tu backend ya está configurado para solo escribir en Mongo)
                 sendEmotionHTTP(payload).catch(() => {});
                 lastSend = now;
             }
         } else {
-            // Si no hay rostro por 2 segundos, mostramos alerta
+            // Alerta si no hay rostro
             if (Date.now() - lastFaceDetectedRef.current > 2000) {
                 setIsFaceDetected(false);
             }
         }
       } catch (e) {
-        // Silenciar errores puntuales
+        // Silenciar errores
       }
 
       requestAnimationFrame(detect);
@@ -328,7 +330,7 @@ export const EmotionDetector: React.FC = () => {
   const renderCameraPanel = () => (
     <div className="video-card">
       <div className="video-wrapper">
-        {/* 👇 VIDEO VISIBLE: display: block */}
+        {/* 🔥 VIDEO VISIBLE Y CON AUTOPLAY */}
         <video 
           ref={videoRef} 
           className="emotion-video" 
