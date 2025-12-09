@@ -89,11 +89,18 @@ export const EmotionDetector: React.FC = () => {
   const loadModels = async () => {
     try {
       await Promise.all([
+      // CAMBIO IMPORTANTE: Usamos el modelo Tiny
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL), 
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL), // Ojo: a veces se necesita el "tiny" landmark también, pero prueba con este primero
+        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+/*
         faceapi.loadSsdMobilenetv1Model(MODEL_URL),
         faceapi.loadFaceLandmarkModel(MODEL_URL),
         faceapi.loadFaceExpressionModel(MODEL_URL),
+        */
       ]);
       setLoaded(true);
+      console.log("✅ Modelos cargados (Tiny Version)");
     } catch (err) {
       console.error("Error cargando modelos:", err);
     }
@@ -199,7 +206,7 @@ export const EmotionDetector: React.FC = () => {
   }, [smoothBuffer]);
 
   /** Loop de detección de Rostros */
-  const runDetectionLoop = () => {
+ /* const runDetectionLoop = () => {
     const intervalId = window.setInterval(async () => {
       if (!videoRef.current || !loaded) return;
 
@@ -247,6 +254,74 @@ export const EmotionDetector: React.FC = () => {
     }, 150); // Loop cada 150ms
 
     detectionIntervalRef.current = intervalId;
+  };*/
+
+  /** Loop de detección OPTIMIZADO */
+  const runDetectionLoop = () => {
+    // Usamos una función recursiva segura en lugar de setInterval
+    const detect = async () => {
+      // Si el componente se desmontó o el video no está listo, paramos
+      if (!videoRef.current || !loaded || !detectionIntervalRef.current) return;
+
+      // 👇 USAMOS OPCIONES LIGERAS (TinyFaceDetector)
+      // inputSize: menor tamaño = más velocidad (ej: 160, 224, 320)
+      const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+
+      const detections = await faceapi
+        .detectSingleFace(videoRef.current, options)
+        .withFaceLandmarks()
+        .withFaceExpressions();
+
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+
+      if (canvas && video && !video.paused && !video.ended) {
+        // Ajustar canvas solo si las dimensiones cambiaron (optimización)
+        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+        }
+        
+        const displaySize = { width: video.videoWidth, height: video.videoHeight };
+        faceapi.matchDimensions(canvas, displaySize);
+
+        // Limpiar dibujo anterior
+        const ctx = canvas.getContext("2d");
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (detections) {
+          const resized = faceapi.resizeResults(detections, displaySize);
+          
+          // Dibujamos
+          faceapi.draw.drawDetections(canvas, resized);
+          faceapi.draw.drawFaceLandmarks(canvas, resized);
+
+          if (resized.expressions) {
+            computeSmoothEmotion(resized.expressions);
+            
+            // Lógica de envío (igual que antes)
+            if (isRecordingRef.current) {
+                const payload = {
+                  user_id: Number(userId) || 0,
+                  session_id: sessionId,
+                  emotions: resized.expressions,
+                  timestamp: Date.now() / 1000,
+                };
+                sendEmotionHTTP(payload);
+                sendWS(payload);
+            }
+          }
+        }
+      }
+
+      // 🔄 Llamar al siguiente frame SOLO cuando este termine (evita trabas)
+      // Usamos requestAnimationFrame para máxima fluidez
+      requestAnimationFrame(detect);
+    };
+
+    // Iniciamos el loop
+    detectionIntervalRef.current = 1; // Marcamos como activo
+    detect();
   };
 
   // Carga inicial
