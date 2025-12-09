@@ -116,13 +116,15 @@ export const EmotionDetector: React.FC = () => {
       if (!videoRef.current) return;
       videoRef.current.srcObject = stream;
 
+      // AGREGAR ESTO: Promesa explícita de play
+      await videoRef.current.play().catch(e => console.error("Error al reproducir:", e));
+
       videoRef.current.onloadedmetadata = () => {
         if (!videoRef.current) return;
         setResolution({
           width: videoRef.current.videoWidth,
           height: videoRef.current.videoHeight
         });
-        videoRef.current.play();
       };
     } catch (err) {
       console.error("Error iniciando cámara:", err);
