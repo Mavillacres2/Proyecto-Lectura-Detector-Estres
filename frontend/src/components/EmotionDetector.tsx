@@ -242,58 +242,50 @@ export const EmotionDetector: React.FC = () => {
         const canvas = canvasRef.current;
         const displaySize = { width: video.videoWidth, height: video.videoHeight };
 
-        // Ajustar tamaño del canvas solo si cambia (optimización)
         if (canvas.width !== displaySize.width) canvas.width = displaySize.width;
         if (canvas.height !== displaySize.height) canvas.height = displaySize.height;
 
-        faceapi.matchDimensions(canvas, displaySize);
         const ctx = canvas.getContext("2d");
 
         if (ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          // 1️⃣ Dibujar el frame de la cámara en el canvas
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
           if (detection) {
-
-            // 🟢 ROSTRO DETECTADO
             lastFaceDetectedRef.current = Date.now();
-            setIsFaceDetected(true); // Quitamos alerta
+            setIsFaceDetected(true);
 
             const resized = faceapi.resizeResults(detection, displaySize);
 
-            // Dibujar solo la caja y expresiones (los landmarks son pesados de dibujar)
+            // 2️⃣ Encima del frame, dibujar cajas y landmarks
             faceapi.draw.drawDetections(canvas, resized);
-            // faceapi.draw.drawFaceLandmarks(canvas, resized); // Descomenta si necesitas ver los puntos
+            // faceapi.draw.drawFaceLandmarks(canvas, resized);
 
             const expressions = resized.expressions;
 
-            // 3. ACTUALIZAR UI (JSON) SOLO 2 VECES POR SEGUNDO
-            // Esto evita que React se trabe re-renderizando texto a alta velocidad
             if (now - lastUiUpdate > 500) {
               setSmoothedEmotion(expressions);
               lastUiUpdate = now;
             }
 
-            // 4. ENVIAR A SERVIDOR SOLO SI ESTAMOS GRABANDO Y HA PASADO EL TIEMPO (500ms)
-            if (isRecordingRef.current && (now - lastSend > 500)) {
+            if (isRecordingRef.current && now - lastSend > 500) {
               const payload = {
                 user_id: Number(userId) || 0,
                 session_id: sessionId,
                 emotions: expressions,
                 timestamp: Date.now() / 1000,
               };
-              // Enviamos sin 'await' para no bloquear el loop principal
               sendEmotionHTTP(payload).catch(console.error);
               sendWS(payload);
               lastSend = now;
             }
           } else {
-            // 🔴 ROSTRO NO DETECTADO
-            // Si han pasado más de 2 segundos (2000ms) sin ver una cara, mostramos alerta
             if (Date.now() - lastFaceDetectedRef.current > 2000) {
               setIsFaceDetected(false);
             }
           }
         }
+
       } catch (error) {
         console.error("Error en ciclo de detección:", error);
       }
