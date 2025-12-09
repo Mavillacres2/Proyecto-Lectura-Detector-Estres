@@ -320,7 +320,7 @@ export const EmotionDetector: React.FC = () => {
     navigate("/results", { state: resultsData });
   };
 
-  // Componente visual reutilizable para la cámara
+  // Componente  reutilizable para la cámara
   const renderCameraPanel = () => (
     <div className="video-card">
       <div className="video-wrapper">
