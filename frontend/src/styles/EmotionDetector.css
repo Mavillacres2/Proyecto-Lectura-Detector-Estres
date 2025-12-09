@@ -86,19 +86,12 @@
   overflow: hidden;
 }
 
-/* Video y canvas ocupan TODO el wrapper */
-.emotion-video,
-.emotion-canvas {
-  position: absolute;
-  inset: 0;
-  width: 1000px;
-  height: 1000px;
+.emotion-video {
+  position: relative !important;
+  display: block !important;
+  opacity: 1 !important;
+  z-index: 9999;
 }
-
-.emotion-canvas {
-  pointer-events: none;     /* Por si acaso, para no tapar clicks */
-}
-
 
 
 
