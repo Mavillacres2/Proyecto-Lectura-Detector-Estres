@@ -65,10 +65,6 @@ export const EmotionDetector: React.FC = () => {
   const [resultsData, setResultsData] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // 🔁 CAMBIO 1: constantes de rendimiento para el loop optimizado
-  const DETECTION_INTERVAL_MS = 120; // máx ~8 detecciones por segundo
-  const TINY_INPUT_SIZE = 160;       // resolución interna pequeña para TinyFaceDetector
-
   const navigate = useNavigate();
 
   // Cargar ID de usuario al montar
@@ -198,15 +194,13 @@ export const EmotionDetector: React.FC = () => {
     setFps(Math.round(avg));
   }, [fpsBuffer]);
 
-  /** 🔁 CAMBIO 5: suavizado de emociones con buffer pequeño (menos lag) */
   const computeSmoothEmotion = (expressions: any) => {
     setSmoothBuffer((prev) => {
       const updated = [...prev, expressions];
-      if (updated.length > 3) updated.shift(); // antes 5
+      if (updated.length > 5) updated.shift();
       return updated;
     });
   };
-
 
   useEffect(() => {
     if (smoothBuffer.length === 0) return;
@@ -220,35 +214,24 @@ export const EmotionDetector: React.FC = () => {
 
   /** Loop de detección de Rostros */
 
-  /** 🔁 CAMBIO 6: Loop de detección OPTIMIZADO (sin setInterval ni landmarks) */
+  // 👉 Puedes poner estos "knobs" arriba del componente:
+  const DETECTION_INTERVAL_MS = 90;  // 90–120ms está bien (≈ 8–11 fps de detección)
+  const TINY_INPUT_SIZE = 160;       // 160 ó 128 = más rápido que 224
+
   const runDetectionLoop = () => {
-    // Marcamos como activo (flag)
     detectionIntervalRef.current = 1;
 
     let lastDetection = 0;
-    let lastSend = 0;
-    let frameCount = 0;
-    let lastFpsTime = performance.now();
+    let lastSend = 0; // para no spamear al backend
 
     const detect = async () => {
-      // Si desmontaron el componente o apagamos el loop, salimos
-      if (!videoRef.current || !canvasRef.current || !loaded || !detectionIntervalRef.current) return;
+      if (!videoRef.current || !canvasRef.current || !loaded || !detectionIntervalRef.current) {
+        return;
+      }
 
       const video = videoRef.current;
       const canvas = canvasRef.current;
 
-      if (!canvas || !video) {
-        requestAnimationFrame(detect);
-        return;
-      }
-
-      // ⚠️ SOLO procesamos detección durante el cuestionario
-      if (step !== "questionnaire") {
-        requestAnimationFrame(detect);
-        return;
-      }
-
-      // Asegurarse de que el video tenga datos
       if (video.readyState < 2 || video.videoWidth === 0) {
         requestAnimationFrame(detect);
         return;
@@ -256,22 +239,14 @@ export const EmotionDetector: React.FC = () => {
 
       const now = performance.now();
 
-      // Limitamos la frecuencia de detección
+      // ⏱️ limitamos frecuencia de detección
       if (now - lastDetection < DETECTION_INTERVAL_MS) {
         requestAnimationFrame(detect);
         return;
       }
       lastDetection = now;
 
-      // FPS basado en detecciones
-      frameCount++;
-      if (now - lastFpsTime >= 1000) {
-        setFps(Math.round((frameCount * 1000) / (now - lastFpsTime)));
-        frameCount = 0;
-        lastFpsTime = now;
-      }
-
-      // Ajustar canvas al tamaño del video
+      // 1) Ajustar tamaño del canvas al del video
       if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -283,10 +258,10 @@ export const EmotionDetector: React.FC = () => {
         return;
       }
 
-      // Dibujar frame de la cámara en el canvas
+      // 2) Dibujar frame de la cámara
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // TinyFaceDetector ligero
+      // 3) Detección ligera (SIN landmarks)
       const options = new faceapi.TinyFaceDetectorOptions({
         inputSize: TINY_INPUT_SIZE,
         scoreThreshold: 0.5,
@@ -294,13 +269,13 @@ export const EmotionDetector: React.FC = () => {
 
       try {
         const detection = await faceapi
-          .detectSingleFace(canvas, options) // usamos el frame del canvas
-          .withFaceExpressions();
+          .detectSingleFace(canvas, options)   // 👈 solo detección
+          .withFaceExpressions();             // 👈 y emociones
 
         if (detection) {
           const box = detection.detection.box;
 
-          // Dibujamos solo la caja (sin landmarks)
+          // Dibujar solo la caja (sin puntos de landmarks)
           const drawBox = new faceapi.draw.DrawBox(box, {
             label: detection.detection.score.toFixed(2),
           });
@@ -309,7 +284,7 @@ export const EmotionDetector: React.FC = () => {
           const expressions = detection.expressions;
           computeSmoothEmotion(expressions);
 
-          // Enviar al backend como máximo cada 300ms
+          // Enviar al backend como máx. cada 300 ms
           if (isRecordingRef.current && now - lastSend > 300) {
             const payload = {
               user_id: Number(userId) || 0,
@@ -336,32 +311,29 @@ export const EmotionDetector: React.FC = () => {
   // Carga inicial
   useEffect(() => { loadModels(); }, []);
 
-  /** 🔁 CAMBIO 7: iniciamos cámara siempre, pero detección SOLO en questionnaire */
+  // Reinicio de cámara al cambiar de paso o cargar modelos
   useEffect(() => {
     if (!loaded) return;
 
-    // siempre tenemos preview de cámara
-    startCamera();
-
-    // pero solo arrancamos el loop pesado cuando estamos en el cuestionario
-    if (step === "questionnaire") {
-      runDetectionLoop();
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
     }
+
+    startCamera();
+    runDetectionLoop();
 
     // Cleanup
     return () => {
-      // apagar el loop
-      detectionIntervalRef.current = null;
-
-      // apagar cámara
+      if (detectionIntervalRef.current) {
+        clearInterval(detectionIntervalRef.current);
+        detectionIntervalRef.current = null;
+      }
       if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream)
-          .getTracks()
-          .forEach((t) => t.stop());
+        (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
       }
     };
   }, [loaded, step]);
-
 
   /** ======= LÓGICA DE RESPUESTAS Y ENVÍO ======= */
 
