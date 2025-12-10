@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 import "../styles/EmotionDetector.css";
 
 const MODEL_URL = "/models";
-const QUESTION_TIME = 25; // ⏱️ Tiempo mínimo por pregunta en segundos
+const QUESTION_TIME = 20; // ⏱️ Tiempo mínimo por pregunta en segundos
 
 // Definimos los pasos del flujo
 type Step = "intro" | "instructions" | "questionnaire" | "completed";
