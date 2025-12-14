@@ -24,16 +24,24 @@ export default function Register() {
 
   const validate = () => {
     const newErrors: any = {};
+    
     if (!form.full_name.trim()) newErrors.full_name = "El nombre es obligatorio.";
+    
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(form.email)) newErrors.email = "Ingresa un correo válido.";
+    
     if (form.password.length < 6) newErrors.password = "Mínimo 6 caracteres.";
     if (form.password !== form.confirm) newErrors.confirm = "Las contraseñas no coinciden.";
+    
+    // 🔞 VALIDACIÓN DE EDAD MEJORADA
     if (!form.age) {
         newErrors.age = "La edad es obligatoria.";
     } else if (Number(form.age) < 18) {
-        newErrors.age = "Debes ser mayor de 18.";
+        newErrors.age = "Debes tener al menos 18 años.";
+    } else if (Number(form.age) > 45) { // 🚫 Límite superior 
+        newErrors.age = "Edad no válida para este sistema.";
     }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -55,21 +63,19 @@ export default function Register() {
     }
   };
 
-  // --- ESTILOS CORREGIDOS ---
-  
+  // --- ESTILOS ---
   const containerStyle = {
     display: "flex",
     flexDirection: "column" as const,
-    gap: "15px", // Espacio entre los grupos de inputs
+    gap: "15px",
     padding: "30px",
     width: "100%",
     maxWidth: "450px"
   };
 
-  // Estilo para el contenedor INDIVIDUAL de cada campo (Input + Error)
   const fieldGroupStyle = {
     display: "flex",
-    flexDirection: "column" as const, // Apila el error debajo del input
+    flexDirection: "column" as const,
     width: "100%"
   };
 
@@ -86,12 +92,11 @@ export default function Register() {
   };
 
   const errorStyle = {
-    color: "#ff0000", // Rojo puro para máximo contraste
+    color: "#ff0000",
     fontSize: "0.85rem",
     fontWeight: "bold",
     textAlign: "left" as const,
-    // 👇 AQUÍ ESTABA EL ERROR: Cambiado de -10px a 5px positivo
-    marginTop: "5px", 
+    marginTop: "5px",
     paddingLeft: "5px",
     textShadow: "0px 0px 1px rgba(255,255,255,0.8)"
   };
