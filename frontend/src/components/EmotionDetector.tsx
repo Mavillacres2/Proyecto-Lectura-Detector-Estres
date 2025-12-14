@@ -55,12 +55,10 @@ export const EmotionDetector: React.FC = () => {
   const [fps, setFps] = useState(0);          // 🔁 CAMBIO 2: solo un estado de FPS (sin buffer)
   const [resolution, setResolution] = useState({ width: 0, height: 0 });
 
-  // 🛡️ NUEVOS ESTADOS PARA CONTROL DE CÁMARA
-  const [cameraReady, setCameraReady] = useState(false); // ¿Tenemos video?
-  const [cameraError, setCameraError] = useState<string | null>(null); // ¿Permiso denegado?
-  const [faceDetected, setFaceDetected] = useState(false); // ¿La IA ve una cara?
-
-
+  // 🛡️ CONTROL DE CÁMARA (Validación estricta)
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  
   // Estados de Flujo y Usuario
   const [step, setStep] = useState<Step>("intro");
   const [sessionId] = useState(() => crypto.randomUUID());
@@ -134,25 +132,19 @@ export const EmotionDetector: React.FC = () => {
 
         video
           .play()
-          .then(() => {
-            console.log("▶️ Video reproduciéndose");
-            setCameraReady(true); // ✅ ¡CÁMARA LISTA!
-          })
+          .then(() => console.log("▶️ Video reproduciéndose"))
           .catch((e) => console.error("Error al reproducir video:", e));
       };
     } catch (err: any) {
-      console.error("Error iniciando cámara:", err);
+      console.error("Error cámara:", err);
       setCameraReady(false);
-
-      // Detectar si fue permiso denegado
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-        setCameraError("🔒 Acceso a la cámara denegado. Por favor, permite el acceso en tu navegador para continuar.");
+        setCameraError("🔒 Acceso denegado. Permite la cámara para continuar.");
       } else {
-        setCameraError("❌ No se pudo acceder a la cámara. Verifica que esté conectada.");
+        setCameraError("❌ Error al acceder a la cámara.");
       }
     }
   };
-
 
   /** ⏱️ Lógica del Timer */
   useEffect(() => {
@@ -264,9 +256,11 @@ export const EmotionDetector: React.FC = () => {
         const detection = await faceapi
           .detectSingleFace(canvas, options) // usamos el frame del canvas
           .withFaceExpressions();
-
+        
         if (detection) {
           const box = detection.detection.box;
+
+          
 
           // Dibujamos solo la caja (sin landmarks)
           const drawBox = new faceapi.draw.DrawBox(box, {
@@ -280,8 +274,6 @@ export const EmotionDetector: React.FC = () => {
           // 1. Esto se ejecuta MUY RÁPIDO (100ms) para que el cuadro azul se mueva bien
           const resized = faceapi.resizeResults(detection, { width: canvas.width, height: canvas.height });
           faceapi.draw.drawDetections(canvas, resized);
-
-          setFaceDetected(true);
 
           // Enviar al backend como máximo cada 300ms
           // Esto asegura que solo envíes 1 dato por segundo, protegiendo tu servidor.
@@ -316,10 +308,6 @@ export const EmotionDetector: React.FC = () => {
 
             lastSend = now;
           }
-        } else {
-          // 🆕 CAMBIO 3: Avisamos que no hay rostro
-          setFaceDetected(false);
-          setSmoothedEmotion(null);
         }
       } catch (e) {
         console.error("Error en loop de detección:", e);
@@ -336,34 +324,8 @@ export const EmotionDetector: React.FC = () => {
     loadModels();
   }, []);
 
-
   /** 🔁 CAMBIO 7: iniciamos cámara siempre, pero detección SOLO en questionnaire */
-
-  // Iniciar cámara y loop cuando cargan los modelos
   useEffect(() => {
-    if (!loaded) return;
-
-    startCamera();
-
-    // 🆕 CAMBIO 4: Iniciamos el loop desde el principio (Intro)
-    // Ya no preguntamos 'if (step === "questionnaire")', lo ejecutamos directo.
-    // Esto permite que la IA detecte el rostro para dar feedback visual ("✅ Rostro Detectado")
-    // aunque NO guardará datos hasta que el usuario llegue al cuestionario.
-    runDetectionLoop();
-
-    return () => {
-      detectionIntervalRef.current = null;
-      if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
-      }
-    };
-
-    // 👇 IMPORTANTE: Quitamos 'step' de aquí. 
-    // Ahora solo depende de [loaded]. Así la cámara se prende una sola vez al inicio 
-    // y no parpadea ni se reinicia cuando pasas de Intro -> Instrucciones -> Cuestionario.
-  }, [loaded]);
-
-  /*useEffect(() => {
     if (!loaded) return;
 
     // siempre tenemos preview de cámara
@@ -386,7 +348,7 @@ export const EmotionDetector: React.FC = () => {
           .forEach((t) => t.stop());
       }
     };
-  }, [loaded, step]);*/
+  }, [loaded, step]);
 
   /** ======= LÓGICA DE RESPUESTAS Y ENVÍO ======= */
 
@@ -465,23 +427,10 @@ export const EmotionDetector: React.FC = () => {
   const renderCameraPanel = () => (
     <div className="video-card">
       <div className="video-wrapper">
-        {/* Si hay error, mostramos una capa negra con el mensaje encima del video */}
-        {cameraError && (
-          <div style={{
-            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-            backgroundColor: 'rgba(0,0,0,0.8)', color: 'white', display: 'flex',
-            flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
-            zIndex: 10, padding: '20px', textAlign: 'center'
-          }}>
-            <span style={{ fontSize: '2rem' }}>🚫</span>
-            <p>{cameraError}</p>
-          </div>
-        )}
         <video ref={videoRef} className="emotion-video" muted playsInline />
         <canvas ref={canvasRef} className="emotion-canvas" />
         {!loaded && <div className="video-placeholder">Cargando modelos...</div>}
       </div>
-
       <div className="camera-stats">
         <span>FPS: {fps}</span>
         <span>
@@ -543,110 +492,67 @@ export const EmotionDetector: React.FC = () => {
 
         <section className="emotion-main">
           {renderCameraPanel()}
-
           <div className="emotion-panel">
             <h3>Estado del Sistema</h3>
-
-            {/* 🆕 CAMBIO 6: Feedback visual intuitivo para el usuario */}
-            <div className="emotion-json" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-              {!loaded ? (
-                <p>⏳ Cargando modelos de IA...</p>
-              ) : cameraError ? (
-                <p style={{ color: '#ff4d4d', fontWeight: 'bold' }}>❌ Error de Cámara</p>
-              ) : !cameraReady ? (
-                <p>📷 Iniciando cámara...</p>
-              ) : faceDetected ? (
-                <>
-                  {/* Si todo está bien y detecta cara, sale verde */}
-                  <p style={{ color: '#4caf50', fontWeight: 'bold', fontSize: '1.1rem' }}>✅ Rostro Detectado</p>
-                  <p style={{ fontSize: '0.9rem' }}>El sistema funciona correctamente.</p>
-
-                  {/* 👇 AGREGA ESTO PARA USAR LA VARIABLE Y CORREGIR EL ERROR TS6133 */}
-                  {smoothedEmotion && (
-                    <p style={{ fontSize: "0.85rem", color: "#666", marginTop: "5px", textTransform: "capitalize" }}>
-                      Detectando: <strong>{Object.keys(smoothedEmotion).reduce((a, b) => smoothedEmotion[a] > smoothedEmotion[b] ? a : b)}</strong>
-                    </p>
-                  )}
-                  {/* 👆 FIN DEL AGREGADO */}
-
-                </>
-              ) : (
-                <>
-                  {/* Si la cámara prende pero no ve cara, sale naranja */}
-                  <p style={{ color: '#ff9800', fontWeight: 'bold' }}>⚠️ Cámara activa, pero no veo tu rostro</p>
-                  <p style={{ fontSize: '0.9rem' }}>Colócate frente a la cámara.</p>
-                </>
-              )}
+            
+            {/* 🔴 CAMBIO 2: Panel Simplificado */}
+            {/* Eliminamos la lógica de 'faceDetected' para no confundir al usuario.
+                Aquí solo mostramos si la cámara cargó correctamente. */}
+            <div className="emotion-json" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100px' }}>
+                {!loaded ? (
+                     <p>⏳ Cargando modelos...</p>
+                ) : cameraError ? (
+                     <p style={{color: '#ff4d4d', fontWeight: 'bold'}}>❌ {cameraError}</p>
+                ) : cameraReady ? (
+                     <>
+                        <p style={{color: '#4caf50', fontWeight: 'bold', fontSize: '1.2rem'}}>✅ Cámara Lista</p>
+                        <p style={{fontSize: '0.9rem', color: '#666'}}>Permisos concedidos correctamente.</p>
+                     </>
+                ) : (
+                     <p>📷 Esperando permisos de cámara...</p>
+                )}
             </div>
           </div>
         </section>
 
-
-        {/*}<section className="emotion-main">
-          {renderCameraPanel()}
-          <div className="emotion-panel">
-            <h3>Emociones detectadas (Prueba)</h3>
-            <div className="emotion-json">
-              {smoothedEmotion ? (
-                <pre>{JSON.stringify(smoothedEmotion, null, 2)}</pre>
-              ) : (
-                <p>Detectando...</p>
-              )}
-            </div>
-          </div>
-        </section>{ 
-        
-         <div className="emotion-actions">
+       {/* <div className="emotion-actions">
           <button
             className="btn-questionary"
             onClick={() => setStep("instructions")}
           >
             Continuar a Instrucciones
           </button>
-        </div>
-      </div>
-        */}
+        </div>*/}
 
-
-
-
-
-
-        <div className="emotion-actions" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-
-          {/* 🆕 CAMBIO 7: Mensaje de ayuda si hay error de permisos */}
+        <div className="emotion-actions" style={{display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center'}}>
+          {/* Mensaje de ayuda si hay error */}
           {cameraError && (
-            <div style={{ backgroundColor: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '5px' }}>
-              ⚠️ <strong>Atención:</strong> Debes dar permisos a la cámara en el navegador.
-            </div>
+              <div style={{backgroundColor: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '5px'}}>
+                  ⚠️ <strong>Acción Requerida:</strong> Haz clic en el ícono de candado 🔒 en la barra de direcciones y permite la cámara.
+              </div>
           )}
 
-          {/* 🆕 CAMBIO 8: BLOQUEO DEL BOTÓN.
-              La propiedad `disabled` ahora depende de que:
-              1. La cámara esté lista (cameraReady)
-              2. Los modelos cargados (loaded)
-              3. No haya errores (cameraError)
-          */}
+          {/* 🔴 CAMBIO 3: Bloqueo del Botón */}
+          {/* Si cameraReady es falso, el botón se bloquea */}
           <button
             className="btn-questionary"
             onClick={() => setStep("instructions")}
-            disabled={!cameraReady || !loaded || !!cameraError}
-            style={{
-              // Estilo visual para que parezca deshabilitado
-              opacity: (!cameraReady || !loaded || !!cameraError) ? 0.5 : 1,
-              cursor: (!cameraReady || !loaded || !!cameraError) ? 'not-allowed' : 'pointer',
-              backgroundColor: cameraError ? '#666' : undefined
+            disabled={!cameraReady || !loaded || !!cameraError} 
+            style={{ 
+                opacity: (!cameraReady || !loaded || !!cameraError) ? 0.5 : 1,
+                cursor: (!cameraReady || !loaded || !!cameraError) ? 'not-allowed' : 'pointer',
+                backgroundColor: cameraError ? '#666' : undefined
             }}
           >
-            {/* Texto dinámico del botón según el estado */}
-            {cameraError ? "Habilita la cámara para continuar" :
-              !loaded ? "Cargando IA..." :
-                !cameraReady ? "Esperando cámara..." :
-                  "Continuar a Instrucciones"}
+            {cameraError ? "Permisos requeridos para continuar" : 
+             !loaded ? "Cargando sistema..." : 
+             !cameraReady ? "Esperando cámara..." : 
+             "Continuar a Instrucciones"}
           </button>
+          {/* 🏁 FIN CAMBIO 3 */}
+
         </div>
       </div>
-
     );
   }
 
