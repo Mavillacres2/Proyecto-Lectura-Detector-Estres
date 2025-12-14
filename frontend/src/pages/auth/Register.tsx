@@ -55,46 +55,59 @@ export default function Register() {
     }
   };
 
-  // Estilos inline para ajuste rápido
+  // --- ESTILOS CORREGIDOS ---
+  
   const containerStyle = {
     display: "flex",
     flexDirection: "column" as const,
-    gap: "15px", // Espacio uniforme entre elementos
-    padding: "20px",
+    gap: "15px", // Espacio entre los grupos de inputs
+    padding: "30px",
     width: "100%",
-    maxWidth: "400px"
+    maxWidth: "450px"
+  };
+
+  // Estilo para el contenedor INDIVIDUAL de cada campo (Input + Error)
+  const fieldGroupStyle = {
+    display: "flex",
+    flexDirection: "column" as const, // Apila el error debajo del input
+    width: "100%"
   };
 
   const inputStyle = {
-    padding: "12px",
+    padding: "12px 15px",
     borderRadius: "8px",
     border: "1px solid rgba(255, 255, 255, 0.5)",
     backgroundColor: "rgba(255, 255, 255, 0.9)",
     color: "#333",
     fontSize: "1rem",
     width: "100%",
-    boxSizing: "border-box" as const
+    boxSizing: "border-box" as const,
+    outline: "none"
   };
 
   const errorStyle = {
-    color: "#e74c3c", // Rojo más legible
-    fontSize: "0.8rem",
+    color: "#ff0000", // Rojo puro para máximo contraste
+    fontSize: "0.85rem",
     fontWeight: "bold",
     textAlign: "left" as const,
-    marginTop: "-10px", // Pegadito al input pero abajo
-    paddingLeft: "5px"
+    // 👇 AQUÍ ESTABA EL ERROR: Cambiado de -10px a 5px positivo
+    marginTop: "5px", 
+    paddingLeft: "5px",
+    textShadow: "0px 0px 1px rgba(255,255,255,0.8)"
   };
 
   return (
     <div className="page-center">
       <div className="glass-box" style={containerStyle}>
-        <h2 style={{ marginBottom: "10px", color: "#fff" }}>Registro</h2>
+        <h2 style={{ marginBottom: "20px", color: "#fff", textShadow: "0 2px 4px rgba(0,0,0,0.2)" }}>
+            Registro
+        </h2>
 
         {/* Nombre */}
-        <div>
+        <div style={fieldGroupStyle}>
             <input 
               name="full_name" 
-              placeholder="Nombre Completo" 
+              placeholder="Nombre y Apellido" 
               onChange={handleChange} 
               style={inputStyle} 
             />
@@ -102,7 +115,7 @@ export default function Register() {
         </div>
 
         {/* Email */}
-        <div>
+        <div style={fieldGroupStyle}>
             <input 
               name="email" 
               placeholder="Correo Electrónico" 
@@ -113,11 +126,11 @@ export default function Register() {
         </div>
 
         {/* Password */}
-        <div>
+        <div style={fieldGroupStyle}>
             <input 
               type="password" 
               name="password" 
-              placeholder="Contraseña" 
+              placeholder="Contraseña (mínimo 6 caracteres)" 
               onChange={handleChange} 
               style={inputStyle} 
             />
@@ -125,7 +138,7 @@ export default function Register() {
         </div>
 
         {/* Confirm */}
-        <div>
+        <div style={fieldGroupStyle}>
             <input 
               type="password" 
               name="confirm" 
@@ -136,9 +149,9 @@ export default function Register() {
             {errors.confirm && <div style={errorStyle}>{errors.confirm}</div>}
         </div>
 
-        {/* Edad y Género en fila (Opcional, para ahorrar espacio) */}
-        <div style={{ display: "flex", gap: "10px" }}>
-            <div style={{ flex: 1 }}>
+        {/* Edad y Género */}
+        <div style={{ display: "flex", gap: "15px", width: "100%" }}>
+            <div style={{ flex: 1, ...fieldGroupStyle }}>
                 <input
                   name="age"
                   placeholder="Edad"
@@ -148,7 +161,7 @@ export default function Register() {
                 />
                 {errors.age && <div style={errorStyle}>{errors.age}</div>}
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, ...fieldGroupStyle }}>
                 <select
                   name="gender"
                   value={form.gender}
@@ -162,12 +175,12 @@ export default function Register() {
             </div>
         </div>
 
-        <button className="glass-btn" onClick={handleSubmit} style={{ marginTop: "10px" }}>
+        <button className="glass-btn" onClick={handleSubmit} style={{ marginTop: "15px", padding: "12px" }}>
             Crear Cuenta
         </button>
 
-        <p style={{ fontSize: "0.9rem", color: "#fff" }}>
-            ¿Ya tienes cuenta? <Link to="/login" style={{ color: "#ffd700", fontWeight: "bold" }}>Inicia Sesión</Link>
+        <p style={{ fontSize: "0.95rem", color: "#fff", marginTop: "15px" }}>
+            ¿Ya tienes cuenta? <Link to="/login" style={{ color: "#ffd700", fontWeight: "bold", textDecoration: "none" }}>Inicia Sesión</Link>
         </p>
       </div>
     </div>
