@@ -234,8 +234,8 @@ export const EmotionDetector: React.FC = () => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
 
-      // Si no estamos en cuestionario, NO procesamos IA (pero la cámara sigue viva)
-      if (step !== "questionnaire") {
+      // ✅ FIX: usar stepRef para leer el step actual
+      if (stepRef.current !== "questionnaire") {
         requestAnimationFrame(detect);
         return;
       }
@@ -274,13 +274,15 @@ export const EmotionDetector: React.FC = () => {
 
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      const options = new faceapi.TinyFaceDetectorOptions({
-        inputSize: TINY_INPUT_SIZE,
-        scoreThreshold: 0.5,
-      });
-
       try {
-        const detection = await faceapi.detectSingleFace(canvas, options).withFaceExpressions();
+        const options = new faceapi.TinyFaceDetectorOptions({
+          inputSize: TINY_INPUT_SIZE,
+          scoreThreshold: 0.5,
+        });
+
+        const detection = await faceapi
+          .detectSingleFace(canvas, options)
+          .withFaceExpressions();
 
         if (detection) {
           const resized = faceapi.resizeResults(detection, {
@@ -301,6 +303,7 @@ export const EmotionDetector: React.FC = () => {
             surprised: Number(expressions.surprised.toFixed(4)),
           };
 
+          // Enviar 1 vez/seg mientras grabas
           if (isRecordingRef.current && now - lastSend > 1000) {
             const payload = {
               user_id: Number(userId) || 0,
@@ -308,12 +311,12 @@ export const EmotionDetector: React.FC = () => {
               emotions: cleanExpressions,
               timestamp: Date.now() / 1000,
             };
-            sendEmotionHTTP(payload).catch(() => {});
+            sendEmotionHTTP(payload).catch(() => { });
             lastSend = now;
           }
         }
       } catch (e) {
-        console.error("Error en loop de detección:", e);
+        console.error("Error en detección:", e);
       }
 
       requestAnimationFrame(detect);
@@ -321,6 +324,7 @@ export const EmotionDetector: React.FC = () => {
 
     detect();
   };
+
 
   // ======== Init ========
   useEffect(() => {
@@ -439,12 +443,12 @@ export const EmotionDetector: React.FC = () => {
       cameraStatus === "ready"
         ? "✅ Cámara activa"
         : cameraStatus === "requesting"
-        ? "⏳ Solicitando permisos..."
-        : cameraStatus === "denied"
-        ? "🚫 Permiso denegado"
-        : cameraStatus === "error"
-        ? "⚠️ Error de cámara"
-        : "ℹ️ Sin iniciar";
+          ? "⏳ Solicitando permisos..."
+          : cameraStatus === "denied"
+            ? "🚫 Permiso denegado"
+            : cameraStatus === "error"
+              ? "⚠️ Error de cámara"
+              : "ℹ️ Sin iniciar";
 
     return (
       <div className="emotion-page">
