@@ -51,7 +51,7 @@ export const EmotionDetector: React.FC = () => {
 
   const [loaded, setLoaded] = useState(false);
   const [smoothBuffer, setSmoothBuffer] = useState<any[]>([]);
-  const [smoothedEmotion, setSmoothedEmotion] = useState<any>(null);
+  //const [smoothedEmotion, setSmoothedEmotion] = useState<any>(null);
   const [fps, setFps] = useState(0);
   const [resolution, setResolution] = useState({ width: 0, height: 0 });
 
@@ -204,7 +204,7 @@ export const EmotionDetector: React.FC = () => {
     });
   };
 
-  useEffect(() => {
+  /*useEffect(() => {
     if (smoothBuffer.length === 0) return;
     const keys = Object.keys(smoothBuffer[0]);
     const avg: any = {};
@@ -212,7 +212,7 @@ export const EmotionDetector: React.FC = () => {
       avg[k] = smoothBuffer.reduce((sum, e) => sum + e[k], 0) / smoothBuffer.length;
     });
     setSmoothedEmotion(avg);
-  }, [smoothBuffer]);
+  }, [smoothBuffer]);*/
 
   /** Loop detección */
   const runDetectionLoop = () => {
