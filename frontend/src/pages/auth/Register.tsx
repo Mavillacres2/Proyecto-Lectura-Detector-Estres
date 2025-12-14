@@ -24,22 +24,22 @@ export default function Register() {
 
   const validate = () => {
     const newErrors: any = {};
-    
+
     if (!form.full_name.trim()) newErrors.full_name = "El nombre es obligatorio.";
-    
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(form.email)) newErrors.email = "Ingresa un correo válido.";
-    
+
     if (form.password.length < 6) newErrors.password = "Mínimo 6 caracteres.";
     if (form.password !== form.confirm) newErrors.confirm = "Las contraseñas no coinciden.";
-    
+
     // 🔞 VALIDACIÓN DE EDAD MEJORADA
     if (!form.age) {
-        newErrors.age = "La edad es obligatoria.";
+      newErrors.age = "La edad es obligatoria.";
     } else if (Number(form.age) < 18) {
-        newErrors.age = "Debes tener al menos 18 años.";
+      newErrors.age = "Debes tener al menos 18 años.";
     } else if (Number(form.age) > 45) { // 🚫 Límite superior 
-        newErrors.age = "Edad no válida para este sistema.";
+      newErrors.age = "Edad no válida para este sistema.";
     }
 
     setErrors(newErrors);
@@ -105,87 +105,98 @@ export default function Register() {
     <div className="page-center">
       <div className="glass-box" style={containerStyle}>
         <h2 style={{ marginBottom: "20px", color: "#fff", textShadow: "0 2px 4px rgba(0,0,0,0.2)" }}>
-            Registro
+          Registro
         </h2>
 
         {/* Nombre */}
         <div style={fieldGroupStyle}>
-            <input 
-              name="full_name" 
-              placeholder="Nombre y Apellido" 
-              onChange={handleChange} 
-              style={inputStyle} 
-            />
-            {errors.full_name && <div style={errorStyle}>{errors.full_name}</div>}
+          <input
+            name="full_name"
+            placeholder="Nombre y Apellido"
+            onChange={handleChange}
+            style={inputStyle}
+          />
+          {errors.full_name && <div style={errorStyle}>{errors.full_name}</div>}
         </div>
 
         {/* Email */}
         <div style={fieldGroupStyle}>
-            <input 
-              name="email" 
-              placeholder="Correo Electrónico" 
-              onChange={handleChange} 
-              style={inputStyle} 
-            />
-            {errors.email && <div style={errorStyle}>{errors.email}</div>}
+          <input
+            name="email"
+            placeholder="Correo Electrónico"
+            onChange={handleChange}
+            style={inputStyle}
+          />
+          {errors.email && <div style={errorStyle}>{errors.email}</div>}
         </div>
 
         {/* Password */}
         <div style={fieldGroupStyle}>
-            <input 
-              type="password" 
-              name="password" 
-              placeholder="Contraseña (mínimo 6 caracteres)" 
-              onChange={handleChange} 
-              style={inputStyle} 
-            />
-            {errors.password && <div style={errorStyle}>{errors.password}</div>}
+          <input
+            type="password"
+            name="password"
+            placeholder="Contraseña (mínimo 6 caracteres)"
+            onChange={handleChange}
+            style={inputStyle}
+          />
+          {errors.password && <div style={errorStyle}>{errors.password}</div>}
         </div>
 
         {/* Confirm */}
         <div style={fieldGroupStyle}>
-            <input 
-              type="password" 
-              name="confirm" 
-              placeholder="Confirmar Contraseña" 
-              onChange={handleChange} 
-              style={inputStyle} 
-            />
-            {errors.confirm && <div style={errorStyle}>{errors.confirm}</div>}
+          <input
+            type="password"
+            name="confirm"
+            placeholder="Confirmar Contraseña"
+            onChange={handleChange}
+            style={inputStyle}
+          />
+          {errors.confirm && <div style={errorStyle}>{errors.confirm}</div>}
         </div>
 
         {/* Edad y Género */}
         <div style={{ display: "flex", gap: "15px", width: "100%" }}>
-            <div style={{ flex: 1, ...fieldGroupStyle }}>
-                <input
-                  name="age"
-                  placeholder="Edad"
-                  type="number"
-                  onChange={handleChange}
-                  style={inputStyle}
-                />
-                {errors.age && <div style={errorStyle}>{errors.age}</div>}
-            </div>
-            <div style={{ flex: 1, ...fieldGroupStyle }}>
-                <select
-                  name="gender"
-                  value={form.gender}
-                  onChange={handleChange}
-                  style={{ ...inputStyle, cursor: "pointer" }}
-                >
-                  <option value="M">Masculino</option>
-                  <option value="F">Femenino</option>
-                  <option value="O">Otro</option>
-                </select>
-            </div>
+
+
+          {/* Edad */}
+          <div style={{ flex: 1, ...fieldGroupStyle }}>
+            <input
+              name="age"
+              placeholder="Edad"
+              type="number" // Mantenlo number
+              onChange={(e) => {
+                // Truco: Si escribe más de 2 números, lo cortamos
+                if (e.target.value.length > 2) return;
+                handleChange(e);
+              }}
+              value={form.age} // Importante: Vincular el valor al estado
+              style={inputStyle}
+              min="1"
+              max="99"
+            />
+            {errors.age && <div style={errorStyle}>{errors.age}</div>}
+          </div>
+
+          <div style={{ flex: 1, ...fieldGroupStyle }}>
+            <select
+              name="gender"
+              value={form.gender}
+              onChange={handleChange}
+              style={{ ...inputStyle, cursor: "pointer" }}
+            >
+              <option value="M">Masculino</option>
+              <option value="F">Femenino</option>
+              <option value="O">Otro</option>
+            </select>
+          </div>
         </div>
 
         <button className="glass-btn" onClick={handleSubmit} style={{ marginTop: "15px", padding: "12px" }}>
-            Crear Cuenta
+          Crear Cuenta
         </button>
 
         <p style={{ fontSize: "0.95rem", color: "#fff", marginTop: "15px" }}>
-            ¿Ya tienes cuenta? <Link to="/login" style={{ color: "#ffd700", fontWeight: "bold", textDecoration: "none" }}>Inicia Sesión</Link>
+          ¿Ya tienes cuenta? <Link to="/login" style={{ color: "#ffd700", fontWeight: "bold", textDecoration: "none" }}>Inicia Sesión</Link>
         </p>
       </div>
     </div>
