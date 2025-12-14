@@ -492,33 +492,145 @@ export const EmotionDetector: React.FC = () => {
 
   // 3. CUESTIONARIO
   if (step === "questionnaire") {
-    const q = QUESTIONS[currentIndex];
-    const canContinue = answers[currentIndex] !== -1 && seconds >= QUESTION_TIME;
+    const currentQuestion = QUESTIONS[currentIndex];
+    const currentAnswer = answers[currentIndex];
+    const hasAnswered = currentAnswer !== -1;
+    const timeCompleted = seconds >= QUESTION_TIME;
+    const canContinue = hasAnswered && timeCompleted;
+    const isLastQuestion = currentIndex === QUESTIONS.length - 1;
+
     return (
       <div className="questionnaire-page">
-        <header className="questionnaire-header"><h1>Pregunta {currentIndex + 1} / 10</h1></header>
+        <header className="questionnaire-header">
+          <h1>Evaluación de Estrés</h1>
+        </header>
+
         <div className="questionnaire-grid">
           <section className="card card-pss">
-            <p style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{q.text}</p>
-            <div className="pss-options">
-              {scaleOptions.map((opt) => (
-                <label key={opt.value} className="pss-option" style={{ padding: 10, border: "1px solid #ccc", margin: "5px 0", borderRadius: 8, display: "flex", gap: 10, background: answers[currentIndex] === opt.value ? "#e0f7fa" : "white" }}>
-                  <input type="radio" checked={answers[currentIndex] === opt.value} onChange={() => handleAnswerChange(opt.value)} />
-                  {opt.label}
-                </label>
-              ))}
+            <h3>
+              Pregunta {currentIndex + 1} de {QUESTIONS.length}
+            </h3>
+
+            <div className="pss-question-row">
+              <p
+                className="pss-question-text"
+                style={{
+                  fontSize: "1.2rem",
+                  fontWeight: "bold",
+                  margin: "20px 0",
+                }}
+              >
+                {currentQuestion.text}
+              </p>
+
+              <div
+                className="pss-options"
+                style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+              >
+                {scaleOptions.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="pss-option"
+                    style={{
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      backgroundColor:
+                        currentAnswer === opt.value ? "#e0f7fa" : "white",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name={`q${currentIndex}`}
+                      value={opt.value}
+                      checked={currentAnswer === opt.value}
+                      onChange={() => handleAnswerChange(opt.value)}
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-            <div style={{ marginTop: 20 }}>
-              <div style={{ height: 10, background: "#eee", borderRadius: 5 }}><div style={{ width: `${(seconds / QUESTION_TIME) * 100}%`, height: "100%", background: canContinue ? "#4caf50" : "#ff9800", transition: "width 1s" }} /></div>
+
+            <div style={{ marginTop: "20px", color: "#555" }}>
+              <p>
+                Siguiente habilitado en: {Math.max(0, QUESTION_TIME - seconds)}s
+              </p>
+              <div
+                style={{
+                  width: "100%",
+                  height: "10px",
+                  background: "#eee",
+                  borderRadius: "5px",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${(seconds / QUESTION_TIME) * 100}%`,
+                    height: "100%",
+                    background: canContinue ? "#4caf50" : "#ff9800",
+                    transition: "width 1s linear",
+                  }}
+                />
+              </div>
             </div>
-            <button className="btn-finish" disabled={!canContinue || submitting} onClick={handleNextOrFinish} style={{ marginTop: 20, width: "100%", opacity: canContinue ? 1 : 0.5 }}>
-              {submitting ? "Enviando..." : (currentIndex === 9 ? "Finalizar" : "Siguiente")}
-            </button>
+
+            {!hasAnswered && (
+              <p
+                style={{
+                  color: "orange",
+                  fontSize: "0.9rem",
+                  marginTop: "10px",
+                }}
+              >
+                ⚠️ Selecciona una respuesta.
+              </p>
+            )}
+            {hasAnswered && !timeCompleted && (
+              <p
+                style={{
+                  color: "#2196f3",
+                  fontSize: "0.9rem",
+                  marginTop: "10px",
+                }}
+              >
+                ⏳ Analizando emociones... espera el temporizador.
+              </p>
+            )}
+
+            <div style={{ marginTop: "20px" }}>
+              <button
+                className="btn-finish"
+                disabled={!canContinue || submitting}
+                onClick={handleNextOrFinish}
+                style={{
+                  opacity: canContinue ? 1 : 0.5,
+                  cursor: canContinue ? "pointer" : "not-allowed",
+                  width: "100%",
+                }}
+              >
+                {submitting
+                  ? "Enviando..."
+                  : isLastQuestion
+                    ? "Finalizar Cuestionario"
+                    : "Siguiente Pregunta"}
+              </button>
+            </div>
           </section>
-          <section className="card card-camera"><h3>Monitor (GRABANDO)</h3>{renderCameraPanel()}</section>
+
+          <section className="card card-camera">
+            <h3>Monitor de Emociones (GRABANDO)</h3>
+            {renderCameraPanel()}
+          </section>
         </div>
       </div>
     );
+
   }
 
   // 4. COMPLETADO
