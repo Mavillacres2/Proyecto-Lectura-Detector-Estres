@@ -319,13 +319,44 @@ export const EmotionDetector: React.FC = () => {
     return (
       <div className="emotion-page">
         <section className="emotion-header">
-           <p className="emotion-description">Este sistema analiza tus emociones para medir el estrés.</p>
-           <div className="emotion-features">
-             <div className="feature-card"><h3>🙂 Emociones</h3><p>Análisis facial.</p></div>
-             <div className="feature-card"><h3>📝 Cuestionario</h3><p>Test PSS-10.</p></div>
-             <div className="feature-card"><h3>📊 Resultados</h3><p>Reporte inmediato.</p></div>
-           </div>
+          <p className="emotion-description">
+            Este sistema te permite evaluar tu nivel de estrés de forma rápida y
+            sencilla mediante el análisis de tus expresiones faciales y un breve
+            cuestionario. Utiliza técnicas de Machine Learning para ofrecerte un
+            resultado claro y personalizado, ayudándote a conocer tu estado
+            emocional y brindando apoyo al bienestar universitario.
+          </p>
+
+          <div className="emotion-features">
+            <div className="feature-card">
+              <div className="feature-icon">😊</div>
+              <h3>Análisis de emociones</h3>
+              <p>
+                Analiza tus expresiones faciales para reconocer tus emociones en
+                tiempo real.
+              </p>
+            </div>
+
+            <div className="feature-card">
+              <div className="feature-icon">📋</div>
+              <h3>Cuestionario sobre estrés</h3>
+              <p>
+                Responde a las preguntas para evaluar tus niveles de estrés
+                percibidos.
+              </p>
+            </div>
+
+            <div className="feature-card">
+              <div className="feature-icon">📊</div>
+              <h3>Resultados del estudiante</h3>
+              <p>
+                Consulta los resultados de tu evaluación de estrés y el
+                historial de tus mediciones.
+              </p>
+            </div>
+          </div>
         </section>
+
 
         <section className="emotion-main">
           {renderCameraPanel()}
