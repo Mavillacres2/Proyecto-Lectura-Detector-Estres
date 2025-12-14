@@ -338,7 +338,32 @@ export const EmotionDetector: React.FC = () => {
 
 
   /** 🔁 CAMBIO 7: iniciamos cámara siempre, pero detección SOLO en questionnaire */
+
+  // Iniciar cámara y loop cuando cargan los modelos
   useEffect(() => {
+    if (!loaded) return;
+
+    startCamera();
+    
+    // 🆕 CAMBIO 4: Iniciamos el loop desde el principio (Intro)
+    // Ya no preguntamos 'if (step === "questionnaire")', lo ejecutamos directo.
+    // Esto permite que la IA detecte el rostro para dar feedback visual ("✅ Rostro Detectado")
+    // aunque NO guardará datos hasta que el usuario llegue al cuestionario.
+    runDetectionLoop();
+
+    return () => {
+      detectionIntervalRef.current = null;
+      if (videoRef.current?.srcObject) {
+        (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+      }
+    };
+    
+    // 👇 IMPORTANTE: Quitamos 'step' de aquí. 
+    // Ahora solo depende de [loaded]. Así la cámara se prende una sola vez al inicio 
+    // y no parpadea ni se reinicia cuando pasas de Intro -> Instrucciones -> Cuestionario.
+  }, [loaded]);
+
+  /*useEffect(() => {
     if (!loaded) return;
 
     // siempre tenemos preview de cámara
@@ -361,7 +386,7 @@ export const EmotionDetector: React.FC = () => {
           .forEach((t) => t.stop());
       }
     };
-  }, [loaded, step]);
+  }, [loaded, step]);*/
 
   /** ======= LÓGICA DE RESPUESTAS Y ENVÍO ======= */
 
