@@ -193,7 +193,7 @@ export const EmotionDetector: React.FC = () => {
         if (detection) {
           const resized = faceapi.resizeResults(detection, { width: canvas.width, height: canvas.height });
           faceapi.draw.drawDetections(canvas, resized);
-          
+
           // Ya no calculamos smoothEmotion aquí para evitar el error TS
 
           // Preparar datos para envío
@@ -215,7 +215,7 @@ export const EmotionDetector: React.FC = () => {
               emotions: cleanExpressions,
               timestamp: Date.now() / 1000,
             };
-            sendEmotionHTTP(payload).catch(() => {});
+            sendEmotionHTTP(payload).catch(() => { });
             lastSend = now;
           }
         }
@@ -233,7 +233,7 @@ export const EmotionDetector: React.FC = () => {
   // Inicio de Cámara
   useEffect(() => {
     if (!loaded) return;
-    
+
     // 1. Iniciamos la cámara visualmente siempre
     startCamera();
 
@@ -360,50 +360,50 @@ export const EmotionDetector: React.FC = () => {
 
         <section className="emotion-main">
           {renderCameraPanel()}
-          
+
           <div className="emotion-panel">
             <h3>Estado del Sistema</h3>
             {/* 🔴 CAMBIO: Panel simplificado para INTRO */}
             <div className="emotion-json" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100px' }}>
-                {!loaded ? (
-                     <p>⏳ Cargando modelos...</p>
-                ) : cameraError ? (
-                     <p style={{color: '#ff4d4d', fontWeight: 'bold'}}>❌ {cameraError}</p>
-                ) : cameraReady ? (
-                     <>
-                        <p style={{color: '#4caf50', fontWeight: 'bold', fontSize: '1.2rem'}}>✅ Cámara Lista</p>
-                        <p style={{fontSize: '0.9rem', color: '#666'}}>Permisos concedidos correctamente.</p>
-                     </>
-                ) : (
-                     <p>📷 Esperando permisos de cámara...</p>
-                )}
+              {!loaded ? (
+                <p>⏳ Cargando modelos...</p>
+              ) : cameraError ? (
+                <p style={{ color: '#ff4d4d', fontWeight: 'bold' }}>❌ {cameraError}</p>
+              ) : cameraReady ? (
+                <>
+                  <p style={{ color: '#4caf50', fontWeight: 'bold', fontSize: '1.2rem' }}>✅ Cámara Lista</p>
+                  <p style={{ fontSize: '0.9rem', color: '#666' }}>Permisos concedidos correctamente.</p>
+                </>
+              ) : (
+                <p>📷 Esperando permisos de cámara...</p>
+              )}
             </div>
           </div>
         </section>
 
-        <div className="emotion-actions" style={{display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center'}}>
+        <div className="emotion-actions" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
           {/* Mensaje de ayuda si hay error */}
           {cameraError && (
-              <div style={{backgroundColor: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '5px'}}>
-                  ⚠️ <strong>Acción Requerida:</strong> Haz clic en el ícono de candado 🔒 en la barra de direcciones y permite la cámara.
-              </div>
+            <div style={{ backgroundColor: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '5px' }}>
+              ⚠️ <strong>Acción Requerida:</strong> Haz clic en el ícono de candado 🔒 en la barra de direcciones y permite la cámara.
+            </div>
           )}
 
           {/* 🔴 CAMBIO: Botón bloqueado si no hay cámara */}
           <button
             className="btn-questionary"
             onClick={() => setStep("instructions")}
-            disabled={!cameraReady || !loaded || !!cameraError} 
-            style={{ 
-                opacity: (!cameraReady || !loaded || !!cameraError) ? 0.5 : 1,
-                cursor: (!cameraReady || !loaded || !!cameraError) ? 'not-allowed' : 'pointer',
-                backgroundColor: cameraError ? '#666' : undefined
+            disabled={!cameraReady || !loaded || !!cameraError}
+            style={{
+              opacity: (!cameraReady || !loaded || !!cameraError) ? 0.5 : 1,
+              cursor: (!cameraReady || !loaded || !!cameraError) ? 'not-allowed' : 'pointer',
+              backgroundColor: cameraError ? '#666' : undefined
             }}
           >
-            {cameraError ? "Permisos requeridos para continuar" : 
-             !loaded ? "Cargando sistema..." : 
-             !cameraReady ? "Esperando cámara..." : 
-             "Continuar a Instrucciones"}
+            {cameraError ? "Permisos requeridos para continuar" :
+              !loaded ? "Cargando sistema..." :
+                !cameraReady ? "Esperando cámara..." :
+                  "Continuar a Instrucciones"}
           </button>
         </div>
       </div>
@@ -414,19 +414,80 @@ export const EmotionDetector: React.FC = () => {
   if (step === "instructions") {
     return (
       <div className="questionnaire-page">
-         <header className="questionnaire-header"><h1>Instrucciones</h1></header>
-         <div className="questionnaire-grid">
-             <section className="card card-pss">
-                 <h3>Test de Estrés</h3>
-                 <p>Responde 10 preguntas sobre el último mes.</p>
-                 <div style={{ marginTop: "30px" }}>
-                   <button className="btn-finish" onClick={() => setStep("questionnaire")} style={{ width: "100%", cursor: "pointer" }}>Iniciar Test</button>
-                 </div>
-             </section>
-             <section className="card card-camera"><h3>Monitor</h3>{renderCameraPanel()}</section>
-         </div>
+        <header className="questionnaire-header">
+          <h1>Instrucciones del Test</h1>
+        </header>
+
+        <div className="questionnaire-grid">
+          <section className="card card-pss">
+            <h3>Sobre la Escala de Estrés Percibido (PSS-10)</h3>
+
+            <div
+              style={{
+                fontSize: "1rem",
+                lineHeight: "1.6",
+                color: "#444",
+                textAlign: "left",
+              }}
+            >
+              <p>
+                A continuación, encontrarás 10 preguntas sobre tus sentimientos y
+                pensamientos durante el <strong>último mes</strong>.
+              </p>
+
+              <ul style={{ margin: "20px 0", paddingLeft: "20px" }}>
+                <li style={{ marginBottom: "10px" }}>
+                  <strong>Objetivo:</strong> Evaluar cuán impredecible,
+                  incontrolable y sobrecargada sientes tu vida actualmente.
+                </li>
+                <li style={{ marginBottom: "10px" }}>
+                  <strong>Cómo responder:</strong> No intentes contar el número
+                  exacto de veces que te has sentido de una manera particular.
+                  Marca la alternativa que mejor represente tu estimación
+                  general.
+                </li>
+              </ul>
+
+              <div
+                className="alert-info"
+                style={{
+                  backgroundColor: "#e3f2fd",
+                  padding: "15px",
+                  borderRadius: "8px",
+                  marginTop: "20px",
+                  borderLeft: "5px solid #2196f3",
+                }}
+              >
+                ℹ️ <strong>Atención:</strong> Para garantizar una lectura
+                emocional precisa, cada pregunta tendrá un{" "}
+                <strong>temporizador de 25 segundos</strong> antes de poder
+                avanzar a la siguiente.
+                <br />
+                <strong>
+                  Tus datos faciales comenzarán a grabarse al iniciar el test.
+                </strong>
+              </div>
+            </div>
+
+            <div style={{ marginTop: "30px" }}>
+              <button
+                className="btn-finish"
+                onClick={() => setStep("questionnaire")}
+                style={{ width: "100%", cursor: "pointer" }}
+              >
+                Entendido, Iniciar Test
+              </button>
+            </div>
+          </section>
+
+          <section className="card card-camera">
+            <h3>Monitor de Emociones</h3>
+            {renderCameraPanel()}
+          </section>
+        </div>
       </div>
     );
+
   }
 
   // 3. CUESTIONARIO
@@ -435,27 +496,27 @@ export const EmotionDetector: React.FC = () => {
     const canContinue = answers[currentIndex] !== -1 && seconds >= QUESTION_TIME;
     return (
       <div className="questionnaire-page">
-         <header className="questionnaire-header"><h1>Pregunta {currentIndex + 1} / 10</h1></header>
-         <div className="questionnaire-grid">
-            <section className="card card-pss">
-                <p style={{fontSize: "1.2rem", fontWeight: "bold"}}>{q.text}</p>
-                <div className="pss-options">
-                    {scaleOptions.map((opt) => (
-                        <label key={opt.value} className="pss-option" style={{ padding: 10, border: "1px solid #ccc", margin: "5px 0", borderRadius: 8, display: "flex", gap: 10, background: answers[currentIndex] === opt.value ? "#e0f7fa" : "white" }}>
-                            <input type="radio" checked={answers[currentIndex] === opt.value} onChange={() => handleAnswerChange(opt.value)} />
-                            {opt.label}
-                        </label>
-                    ))}
-                </div>
-                <div style={{ marginTop: 20 }}>
-                    <div style={{ height: 10, background: "#eee", borderRadius: 5 }}><div style={{ width: `${(seconds/QUESTION_TIME)*100}%`, height: "100%", background: canContinue ? "#4caf50" : "#ff9800", transition: "width 1s" }} /></div>
-                </div>
-                <button className="btn-finish" disabled={!canContinue || submitting} onClick={handleNextOrFinish} style={{ marginTop: 20, width: "100%", opacity: canContinue ? 1 : 0.5 }}>
-                    {submitting ? "Enviando..." : (currentIndex === 9 ? "Finalizar" : "Siguiente")}
-                </button>
-            </section>
-            <section className="card card-camera"><h3>Monitor (GRABANDO)</h3>{renderCameraPanel()}</section>
-         </div>
+        <header className="questionnaire-header"><h1>Pregunta {currentIndex + 1} / 10</h1></header>
+        <div className="questionnaire-grid">
+          <section className="card card-pss">
+            <p style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{q.text}</p>
+            <div className="pss-options">
+              {scaleOptions.map((opt) => (
+                <label key={opt.value} className="pss-option" style={{ padding: 10, border: "1px solid #ccc", margin: "5px 0", borderRadius: 8, display: "flex", gap: 10, background: answers[currentIndex] === opt.value ? "#e0f7fa" : "white" }}>
+                  <input type="radio" checked={answers[currentIndex] === opt.value} onChange={() => handleAnswerChange(opt.value)} />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+            <div style={{ marginTop: 20 }}>
+              <div style={{ height: 10, background: "#eee", borderRadius: 5 }}><div style={{ width: `${(seconds / QUESTION_TIME) * 100}%`, height: "100%", background: canContinue ? "#4caf50" : "#ff9800", transition: "width 1s" }} /></div>
+            </div>
+            <button className="btn-finish" disabled={!canContinue || submitting} onClick={handleNextOrFinish} style={{ marginTop: 20, width: "100%", opacity: canContinue ? 1 : 0.5 }}>
+              {submitting ? "Enviando..." : (currentIndex === 9 ? "Finalizar" : "Siguiente")}
+            </button>
+          </section>
+          <section className="card card-camera"><h3>Monitor (GRABANDO)</h3>{renderCameraPanel()}</section>
+        </div>
       </div>
     );
   }
