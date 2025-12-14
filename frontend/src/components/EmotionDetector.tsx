@@ -51,7 +51,7 @@ export const EmotionDetector: React.FC = () => {
   // Estados de IA y Cámara
   const [loaded, setLoaded] = useState(false);
   const [smoothBuffer, setSmoothBuffer] = useState<any[]>([]);
-  //const [smoothedEmotion, setSmoothedEmotion] = useState<any>(null);
+  const [smoothedEmotion, setSmoothedEmotion] = useState<any>(null);
   const [fps, setFps] = useState(0);          // 🔁 CAMBIO 2: solo un estado de FPS (sin buffer)
   const [resolution, setResolution] = useState({ width: 0, height: 0 });
 
