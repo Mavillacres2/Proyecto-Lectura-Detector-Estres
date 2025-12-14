@@ -2,7 +2,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { sendEmotionHTTP } from "../services/emotionService";
-//import { sendWS } from "../services/wsService";
 import { submitPSS } from "../services/pssService";
 import { useNavigate } from "react-router-dom";
 import "../styles/EmotionDetector.css";
@@ -10,16 +9,9 @@ import "../styles/EmotionDetector.css";
 const MODEL_URL = "/models";
 const QUESTION_TIME = 20;
 
-// Definimos los pasos del flujo
 type Step = "intro" | "instructions" | "questionnaire" | "completed";
 
-// ✅ CAMBIO PERMISOS: estados de cámara
 type CameraStatus = "idle" | "requesting" | "ready" | "denied" | "error";
-
-type Expressions = Record<string, number>;
-
-const isNotAllowed = (err: any) =>
-  err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError";
 
 const QUESTIONS = [
   { id: 1, text: "1. ¿Con qué frecuencia ha estado afectado por algo que ha ocurrido inesperadamente?", reverse: false },
@@ -45,18 +37,21 @@ const scaleOptions = [
 const DETECTION_INTERVAL_MS = 120;
 const TINY_INPUT_SIZE = 160;
 
+const isNotAllowed = (err: any) =>
+  err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError";
+
 export const EmotionDetector: React.FC = () => {
+  // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const detectionIntervalRef = useRef<number | null>(null);
-
   const isRecordingRef = useRef(false);
 
+  // ✅ CLAVE: stream persiste aunque React recree el <video>
+  const streamRef = useRef<MediaStream | null>(null);
+
+  // Estados
   const [loaded, setLoaded] = useState(false);
-  
-
-  const [smoothBuffer, setSmoothBuffer] = useState<Expressions[]>([]);
-
   const [fps, setFps] = useState(0);
   const [resolution, setResolution] = useState({ width: 0, height: 0 });
 
@@ -70,31 +65,66 @@ export const EmotionDetector: React.FC = () => {
   const [resultsData, setResultsData] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // ✅ CAMBIO PERMISOS: estado de cámara + mensaje
+  // Cámara
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>("idle");
+  const [cameraReady, setCameraReady] = useState(false);
   const [cameraMessage, setCameraMessage] = useState<string>(
     "Para continuar, debes permitir el acceso a la cámara."
   );
-  const [cameraReady, setCameraReady] = useState(false);
 
   const navigate = useNavigate();
 
+  // ======== Helpers cámara ========
+  const isStreamLive = (video: HTMLVideoElement | null) => {
+    const stream = (video?.srcObject as MediaStream | null) ?? streamRef.current;
+    if (!stream) return false;
+    const tracks = stream.getVideoTracks();
+    return tracks.length > 0 && tracks.some((t) => t.readyState === "live" && t.enabled);
+  };
+
+  const attachStreamToVideo = async () => {
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!video || !stream) return;
+
+    // re-engancha el stream si el <video> fue recreado
+    if (video.srcObject !== stream) {
+      video.srcObject = stream;
+    }
+
+    try {
+      await video.play();
+    } catch (e) {
+      // Con muted normalmente se puede; si falla, no es fatal.
+      console.warn("No se pudo hacer play() automáticamente:", e);
+    }
+
+    // actualizar resolución si ya hay datos
+    if (video.videoWidth > 0 && video.videoHeight > 0) {
+      setResolution({ width: video.videoWidth, height: video.videoHeight });
+    }
+
+    const ok = video.readyState >= 2 && video.videoWidth > 0 && isStreamLive(video);
+    setCameraReady(ok);
+
+    if (ok) {
+      setCameraStatus("ready");
+      setCameraMessage("✅ Cámara funcionando correctamente. Ya puedes continuar.");
+    }
+  };
+
+  // ======== Usuario ========
   useEffect(() => {
     const stored = localStorage.getItem("user_id");
     if (stored) setUserId(Number(stored));
   }, []);
 
+  // ======== Grabación activa solo en questionnaire ========
   useEffect(() => {
-    if (step === "questionnaire") {
-      isRecordingRef.current = true;
-      console.log("🔴 GRABACIÓN DE DATOS INICIADA (Dataset activo)");
-    } else {
-      isRecordingRef.current = false;
-      console.log("⏸️ GRABACIÓN PAUSADA (Modo prueba de cámara)");
-    }
+    isRecordingRef.current = step === "questionnaire";
   }, [step]);
 
-  /** 1. Cargar modelos */
+  // ======== Modelos ========
   const loadModels = async () => {
     try {
       await Promise.all([
@@ -108,15 +138,7 @@ export const EmotionDetector: React.FC = () => {
     }
   };
 
-  // ✅ CAMBIO PERMISOS: helper para validar si el stream está vivo
-  const isStreamLive = (video: HTMLVideoElement | null) => {
-    const stream = video?.srcObject as MediaStream | null;
-    if (!stream) return false;
-    const tracks = stream.getVideoTracks();
-    return tracks.length > 0 && tracks.some((t) => t.readyState === "live" && t.enabled);
-  };
-
-  /** 2. Iniciar cámara */
+  // ======== Cámara ========
   const startCamera = async () => {
     try {
       setCameraStatus("requesting");
@@ -126,6 +148,12 @@ export const EmotionDetector: React.FC = () => {
       if (!navigator.mediaDevices?.getUserMedia) {
         setCameraStatus("error");
         setCameraMessage("Tu navegador no soporta acceso a cámara (getUserMedia).");
+        return;
+      }
+
+      // Si ya existe stream, solo re-engancharlo
+      if (streamRef.current) {
+        await attachStreamToVideo();
         return;
       }
 
@@ -139,37 +167,19 @@ export const EmotionDetector: React.FC = () => {
         audio: false,
       });
 
+      streamRef.current = stream;
+
+      // enganchar al video actual
+      await attachStreamToVideo();
+
+      // por si metadata llega después
       const video = videoRef.current;
-      if (!video) return;
-
-      video.srcObject = stream;
-
-      // ✅ CAMBIO PERMISOS: eventos para marcar cámara lista
-      video.onloadedmetadata = () => {
-        setResolution({ width: video.videoWidth, height: video.videoHeight });
-
-        video
-          .play()
-          .then(() => {
-            // Esperamos un tick para que readyState y tracks se estabilicen
-            setTimeout(() => {
-              const ok = video.readyState >= 2 && video.videoWidth > 0 && isStreamLive(video);
-              setCameraReady(ok);
-              if (ok) {
-                setCameraStatus("ready");
-                setCameraMessage("✅ Cámara funcionando correctamente. Ya puedes continuar.");
-              } else {
-                setCameraStatus("error");
-                setCameraMessage("La cámara no está entregando video. Reintenta o revisa permisos.");
-              }
-            }, 200);
-          })
-          .catch((e) => {
-            console.error("Error al reproducir video:", e);
-            setCameraStatus("error");
-            setCameraMessage("No se pudo reproducir el video. Revisa permisos o recarga la página.");
-          });
-      };
+      if (video) {
+        video.onloadedmetadata = async () => {
+          setResolution({ width: video.videoWidth, height: video.videoHeight });
+          await attachStreamToVideo();
+        };
+      }
     } catch (err: any) {
       console.error("Error iniciando cámara:", err);
 
@@ -177,19 +187,27 @@ export const EmotionDetector: React.FC = () => {
         setCameraStatus("denied");
         setCameraReady(false);
         setCameraMessage(
-          "🚫 Permiso de cámara denegado. Actívalo en el navegador (icono de cámara en la barra de direcciones) y luego presiona “Reintentar”."
+          "🚫 Permiso de cámara denegado. Actívalo en el navegador (candado/ícono de cámara en la barra de direcciones) y luego presiona “Reintentar”."
         );
       } else {
         setCameraStatus("error");
         setCameraReady(false);
         setCameraMessage(
-          "⚠️ No se pudo acceder a la cámara. Asegúrate de que no esté siendo usada por otra app (Zoom/Meet) y reintenta."
+          "⚠️ No se pudo acceder a la cámara. Cierra apps que la usen (Zoom/Meet) y reintenta."
         );
       }
     }
   };
 
-  /** ⏱️ Timer */
+  // ✅ Cada cambio de step puede recrear el <video>, por eso re-attach
+  useEffect(() => {
+    if (streamRef.current) {
+      attachStreamToVideo();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  // ======== Timer ========
   useEffect(() => {
     if (step !== "questionnaire") return;
 
@@ -201,25 +219,7 @@ export const EmotionDetector: React.FC = () => {
     return () => clearInterval(intervalId);
   }, [currentIndex, step]);
 
-  const computeSmoothEmotion = (expressions: Expressions) => {
-    setSmoothBuffer((prev: Expressions[]) => {
-      const updated = [...prev, expressions];
-      if (updated.length > 3) updated.shift();
-      return updated;
-    });
-  };
-
-  /*useEffect(() => {
-    if (smoothBuffer.length === 0) return;
-    const keys = Object.keys(smoothBuffer[0]);
-    const avg: any = {};
-    keys.forEach((k) => {
-      avg[k] = smoothBuffer.reduce((sum, e) => sum + e[k], 0) / smoothBuffer.length;
-    });
-    setSmoothedEmotion(avg);
-  }, [smoothBuffer]);*/
-
-  /** Loop detección */
+  // ======== Loop detección ========
   const runDetectionLoop = () => {
     detectionIntervalRef.current = 1;
 
@@ -234,6 +234,7 @@ export const EmotionDetector: React.FC = () => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
 
+      // Si no estamos en cuestionario, NO procesamos IA (pero la cámara sigue viva)
       if (step !== "questionnaire") {
         requestAnimationFrame(detect);
         return;
@@ -251,6 +252,7 @@ export const EmotionDetector: React.FC = () => {
       }
       lastDetection = now;
 
+      // FPS
       frameCount++;
       if (now - lastFpsTime >= 1000) {
         setFps(Math.round((frameCount * 1000) / (now - lastFpsTime)));
@@ -258,6 +260,7 @@ export const EmotionDetector: React.FC = () => {
         lastFpsTime = now;
       }
 
+      // Canvas tamaño video
       if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -280,18 +283,13 @@ export const EmotionDetector: React.FC = () => {
         const detection = await faceapi.detectSingleFace(canvas, options).withFaceExpressions();
 
         if (detection) {
-          const box = detection.detection.box;
-
-          const drawBox = new faceapi.draw.DrawBox(box, {
-            label: detection.detection.score.toFixed(2),
+          const resized = faceapi.resizeResults(detection, {
+            width: canvas.width,
+            height: canvas.height,
           });
-          drawBox.draw(canvas);
+          faceapi.draw.drawDetections(canvas, resized);
 
           const expressions = detection.expressions;
-          computeSmoothEmotion(expressions);
-
-          const resized = faceapi.resizeResults(detection, { width: canvas.width, height: canvas.height });
-          faceapi.draw.drawDetections(canvas, resized);
 
           const cleanExpressions = {
             neutral: Number(expressions.neutral.toFixed(4)),
@@ -310,7 +308,7 @@ export const EmotionDetector: React.FC = () => {
               emotions: cleanExpressions,
               timestamp: Date.now() / 1000,
             };
-            sendEmotionHTTP(payload).catch(() => { });
+            sendEmotionHTTP(payload).catch(() => {});
             lastSend = now;
           }
         }
@@ -324,30 +322,31 @@ export const EmotionDetector: React.FC = () => {
     detect();
   };
 
+  // ======== Init ========
   useEffect(() => {
     loadModels();
   }, []);
 
-  /** ✅ CAMBIO PERMISOS: arrancar cámara siempre que models estén cargados */
+  // ✅ Iniciar cámara una sola vez cuando modelos estén listos
   useEffect(() => {
     if (!loaded) return;
 
     startCamera();
-
-    if (step === "questionnaire") {
-      runDetectionLoop();
-    }
+    runDetectionLoop(); // corre siempre, pero “trabaja” solo en questionnaire por el bloqueo
 
     return () => {
       detectionIntervalRef.current = null;
 
-      if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+      // apagar cámara SOLO al desmontar componente
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
       }
     };
-  }, [loaded, step]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded]);
 
-  /** ======= RESPUESTAS ======= */
+  // ======== Cuestionario ========
   const handleAnswerChange = (value: number) => {
     setAnswers((prev) => {
       const updated = [...prev];
@@ -366,6 +365,7 @@ export const EmotionDetector: React.FC = () => {
 
   const handleNextOrFinish = async () => {
     const isLastQuestion = currentIndex === QUESTIONS.length - 1;
+
     if (!isLastQuestion) {
       setCurrentIndex((prev) => prev + 1);
       return;
@@ -404,15 +404,14 @@ export const EmotionDetector: React.FC = () => {
     navigate("/results", { state: resultsData });
   };
 
-  /** Cámara Panel */
+  // ======== UI ========
   const renderCameraPanel = () => (
     <div className="video-card">
       <div className="video-wrapper">
-        <video ref={videoRef} className="emotion-video" muted playsInline />
+        <video ref={videoRef} className="emotion-video" muted playsInline autoPlay />
         <canvas ref={canvasRef} className="emotion-canvas" />
         {!loaded && <div className="video-placeholder">Cargando modelos...</div>}
 
-        {/* ✅ CAMBIO PERMISOS: overlay si no está lista */}
         {loaded && !cameraReady && (
           <div className="video-placeholder">
             {cameraStatus === "requesting" ? "Solicitando cámara..." : "Cámara no disponible"}
@@ -430,53 +429,46 @@ export const EmotionDetector: React.FC = () => {
     </div>
   );
 
-  /** ======================
-   * RENDER POR PASOS
-   * ====================== */
+  // ======== RENDER POR PASOS ========
 
-  // 1. INTRO
+  // 1) INTRO
   if (step === "intro") {
-    // ✅ CAMBIO PERMISOS: botón deshabilitado si la cámara no está lista
-    const canGoNext = cameraReady && cameraStatus === "ready";
+    const canGoNext = loaded && cameraReady && cameraStatus === "ready";
 
-    // Texto rápido tipo “estado” para el panel derecho
     const statusBadge =
       cameraStatus === "ready"
         ? "✅ Cámara activa"
         : cameraStatus === "requesting"
-          ? "⏳ Solicitando permisos..."
-          : cameraStatus === "denied"
-            ? "🚫 Permiso denegado"
-            : cameraStatus === "error"
-              ? "⚠️ Error de cámara"
-              : "ℹ️ Sin iniciar";
+        ? "⏳ Solicitando permisos..."
+        : cameraStatus === "denied"
+        ? "🚫 Permiso denegado"
+        : cameraStatus === "error"
+        ? "⚠️ Error de cámara"
+        : "ℹ️ Sin iniciar";
 
     return (
       <div className="emotion-page">
         <section className="emotion-header">
           <p className="emotion-description">
-            Este sistema te permite evaluar tu nivel de estrés de forma rápida y sencilla mediante el análisis de tus
-            expresiones faciales y un breve cuestionario. Utiliza técnicas de Machine Learning para ofrecerte un resultado
-            claro y personalizado.
+            Este sistema te permite evaluar tu nivel de estrés mediante un breve cuestionario (PSS-10) y el análisis de tu
+            cámara. Para continuar, primero debes permitir el acceso a la cámara.
           </p>
 
           <div className="emotion-features">
             <div className="feature-card">
               <div className="feature-icon">😊</div>
               <h3>Análisis de emociones</h3>
-              <p>Analiza tus expresiones faciales para reconocer tus emociones en tiempo real.</p>
+              <p>Durante el test se analizan expresiones faciales para estimar estados emocionales.</p>
             </div>
-
             <div className="feature-card">
               <div className="feature-icon">📋</div>
               <h3>Cuestionario sobre estrés</h3>
-              <p>Responde a las preguntas para evaluar tus niveles de estrés percibidos.</p>
+              <p>Responde 10 preguntas sobre el último mes (PSS-10).</p>
             </div>
-
             <div className="feature-card">
               <div className="feature-icon">📊</div>
               <h3>Resultados del estudiante</h3>
-              <p>Consulta los resultados de tu evaluación de estrés y el historial de tus mediciones.</p>
+              <p>Obtén el resultado final y el historial de mediciones.</p>
             </div>
           </div>
         </section>
@@ -487,7 +479,6 @@ export const EmotionDetector: React.FC = () => {
           <div className="emotion-panel">
             <h3>Emociones detectadas (Prueba)</h3>
 
-            {/* ✅ CAMBIO PERMISOS: aviso claro + botón reintentar */}
             <div
               style={{
                 background: "#f6f7fb",
@@ -520,15 +511,12 @@ export const EmotionDetector: React.FC = () => {
             </div>
 
             <div className="emotion-json">
-              {/* En intro solo mostramos “cámara ok” o instrucciones; emociones reales las muestras en questionnaire */}
               {cameraReady ? (
                 <p style={{ margin: 0 }}>
-                  ✅ Cámara funcionando. Cuando inicies el test comenzará el análisis de emociones y el envío de datos.
+                  ✅ Cámara funcionando. Al iniciar el test comenzará el análisis de emociones y el registro.
                 </p>
               ) : (
-                <p style={{ margin: 0 }}>
-                  🔒 Para continuar, primero permite el acceso a la cámara en el navegador.
-                </p>
+                <p style={{ margin: 0 }}>🔒 Permite el acceso a la cámara para poder continuar.</p>
               )}
             </div>
           </div>
@@ -551,7 +539,7 @@ export const EmotionDetector: React.FC = () => {
     );
   }
 
-  // 2. INSTRUCCIONES
+  // 2) INSTRUCCIONES
   if (step === "instructions") {
     return (
       <div className="questionnaire-page">
@@ -565,13 +553,12 @@ export const EmotionDetector: React.FC = () => {
 
             <div style={{ fontSize: "1rem", lineHeight: "1.6", color: "#444", textAlign: "left" }}>
               <p>
-                A continuación, encontrarás 10 preguntas sobre tus sentimientos y pensamientos durante el{" "}
-                <strong>último mes</strong>.
+                Encontrarás 10 preguntas sobre tus sentimientos y pensamientos durante el <strong>último mes</strong>.
               </p>
 
               <ul style={{ margin: "20px 0", paddingLeft: "20px" }}>
                 <li style={{ marginBottom: "10px" }}>
-                  <strong>Objetivo:</strong> Evaluar cuán impredecible, incontrolable y sobrecargada sientes tu vida actualmente.
+                  <strong>Objetivo:</strong> Evaluar cuán impredecible, incontrolable y sobrecargada sientes tu vida.
                 </li>
                 <li style={{ marginBottom: "10px" }}>
                   <strong>Cómo responder:</strong> Marca la alternativa que mejor represente tu estimación general.
@@ -588,19 +575,15 @@ export const EmotionDetector: React.FC = () => {
                   borderLeft: "5px solid #2196f3",
                 }}
               >
-                ℹ️ <strong>Atención:</strong> Para garantizar una lectura emocional precisa, cada pregunta tendrá un{" "}
-                <strong>temporizador de 25 segundos</strong> antes de poder avanzar.
+                ℹ️ <strong>Atención:</strong> Cada pregunta tendrá un <strong>temporizador de 20 segundos</strong> antes de
+                poder avanzar.
                 <br />
                 <strong>Tus datos faciales comenzarán a grabarse al iniciar el test.</strong>
               </div>
             </div>
 
             <div style={{ marginTop: "30px" }}>
-              <button
-                className="btn-finish"
-                onClick={() => setStep("questionnaire")}
-                style={{ width: "100%", cursor: "pointer" }}
-              >
+              <button className="btn-finish" onClick={() => setStep("questionnaire")} style={{ width: "100%" }}>
                 Entendido, Iniciar Test
               </button>
             </div>
@@ -615,7 +598,7 @@ export const EmotionDetector: React.FC = () => {
     );
   }
 
-  // 3. CUESTIONARIO
+  // 3) CUESTIONARIO
   if (step === "questionnaire") {
     const currentQuestion = QUESTIONS[currentIndex];
     const currentAnswer = answers[currentIndex];
@@ -636,38 +619,33 @@ export const EmotionDetector: React.FC = () => {
               Pregunta {currentIndex + 1} de {QUESTIONS.length}
             </h3>
 
-            <div className="pss-question-row">
-              <p className="pss-question-text" style={{ fontSize: "1.2rem", fontWeight: "bold", margin: "20px 0" }}>
-                {currentQuestion.text}
-              </p>
+            <p style={{ fontSize: "1.2rem", fontWeight: "bold", margin: "20px 0" }}>{currentQuestion.text}</p>
 
-              <div className="pss-options" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {scaleOptions.map((opt) => (
-                  <label
-                    key={opt.value}
-                    className="pss-option"
-                    style={{
-                      padding: "10px",
-                      border: "1px solid #ccc",
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      backgroundColor: currentAnswer === opt.value ? "#e0f7fa" : "white",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name={`q${currentIndex}`}
-                      value={opt.value}
-                      checked={currentAnswer === opt.value}
-                      onChange={() => handleAnswerChange(opt.value)}
-                    />
-                    <span>{opt.label}</span>
-                  </label>
-                ))}
-              </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {scaleOptions.map((opt) => (
+                <label
+                  key={opt.value}
+                  style={{
+                    padding: "10px",
+                    border: "1px solid #ccc",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    backgroundColor: currentAnswer === opt.value ? "#e0f7fa" : "white",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name={`q${currentIndex}`}
+                    value={opt.value}
+                    checked={currentAnswer === opt.value}
+                    onChange={() => handleAnswerChange(opt.value)}
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
             </div>
 
             <div style={{ marginTop: "20px", color: "#555" }}>
@@ -684,13 +662,9 @@ export const EmotionDetector: React.FC = () => {
               </div>
             </div>
 
-            {!hasAnswered && (
-              <p style={{ color: "orange", fontSize: "0.9rem", marginTop: "10px" }}>⚠️ Selecciona una respuesta.</p>
-            )}
+            {!hasAnswered && <p style={{ color: "orange", fontSize: "0.9rem", marginTop: "10px" }}>⚠️ Selecciona una respuesta.</p>}
             {hasAnswered && !timeCompleted && (
-              <p style={{ color: "#2196f3", fontSize: "0.9rem", marginTop: "10px" }}>
-                ⏳ Analizando emociones... espera el temporizador.
-              </p>
+              <p style={{ color: "#2196f3", fontSize: "0.9rem", marginTop: "10px" }}>⏳ Analizando emociones... espera el temporizador.</p>
             )}
 
             <div style={{ marginTop: "20px" }}>
@@ -718,7 +692,7 @@ export const EmotionDetector: React.FC = () => {
     );
   }
 
-  // 4. COMPLETADO
+  // 4) COMPLETADO
   return (
     <div className="completed-page">
       <div className="completed-card">
