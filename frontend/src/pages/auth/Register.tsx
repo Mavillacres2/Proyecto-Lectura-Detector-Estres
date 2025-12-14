@@ -12,7 +12,7 @@ export default function Register() {
     password: "",
     confirm: "",
     age: "",
-    gender: "M",
+    gender: "",
   });
 
   const [errors, setErrors] = useState<any>({});
@@ -40,6 +40,16 @@ export default function Register() {
       newErrors.age = "Debes tener al menos 18 años.";
     } else if (Number(form.age) > 45) { // 🚫 Límite superior 
       newErrors.age = "Edad no válida para este sistema.";
+    }
+
+    // --- NUEVA VALIDACIÓN DE GÉNERO ---
+    if (!form.gender) {
+      // Esto evita que se envíe el formulario si no eligen nada
+      // Puedes mostrar un error o simplemente no dejar pasar
+      alert("Por favor selecciona un género");
+      return false;
+      // O si prefieres usar tu sistema de errores visuales:
+      //newErrors.gender = "Selecciona un género";
     }
 
     setErrors(newErrors);
@@ -182,8 +192,16 @@ export default function Register() {
               name="gender"
               value={form.gender}
               onChange={handleChange}
-              style={{ ...inputStyle, cursor: "pointer" }}
+              // Si el valor es "", mostramos el color gris (placeholder), si no, negro
+              style={{
+                ...inputStyle,
+                cursor: "pointer",
+                color: form.gender === "" ? "#757575" : "#333"
+              }}
             >
+              {/* Opción Placeholder */}
+              <option value="" disabled hidden>Género</option>
+
               <option value="M">Masculino</option>
               <option value="F">Femenino</option>
               <option value="O">Otro</option>
