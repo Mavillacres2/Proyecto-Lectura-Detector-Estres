@@ -344,7 +344,7 @@ export const EmotionDetector: React.FC = () => {
     if (!loaded) return;
 
     startCamera();
-    
+
     // 🆕 CAMBIO 4: Iniciamos el loop desde el principio (Intro)
     // Ya no preguntamos 'if (step === "questionnaire")', lo ejecutamos directo.
     // Esto permite que la IA detecte el rostro para dar feedback visual ("✅ Rostro Detectado")
@@ -357,7 +357,7 @@ export const EmotionDetector: React.FC = () => {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
       }
     };
-    
+
     // 👇 IMPORTANTE: Quitamos 'step' de aquí. 
     // Ahora solo depende de [loaded]. Así la cámara se prende una sola vez al inicio 
     // y no parpadea ni se reinicia cuando pasas de Intro -> Instrucciones -> Cuestionario.
@@ -543,31 +543,40 @@ export const EmotionDetector: React.FC = () => {
 
         <section className="emotion-main">
           {renderCameraPanel()}
-          
+
           <div className="emotion-panel">
             <h3>Estado del Sistema</h3>
-            
+
             {/* 🆕 CAMBIO 6: Feedback visual intuitivo para el usuario */}
             <div className="emotion-json" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                {!loaded ? (
-                     <p>⏳ Cargando modelos de IA...</p>
-                ) : cameraError ? (
-                     <p style={{color: '#ff4d4d', fontWeight: 'bold'}}>❌ Error de Cámara</p>
-                ) : !cameraReady ? (
-                     <p>📷 Iniciando cámara...</p>
-                ) : faceDetected ? (
-                    <>
-                        {/* Si todo está bien y detecta cara, sale verde */}
-                        <p style={{color: '#4caf50', fontWeight: 'bold', fontSize: '1.1rem'}}>✅ Rostro Detectado</p>
-                        <p style={{fontSize: '0.9rem'}}>El sistema funciona correctamente.</p>
-                    </>
-                ) : (
-                    <>
-                         {/* Si la cámara prende pero no ve cara, sale naranja */}
-                        <p style={{color: '#ff9800', fontWeight: 'bold'}}>⚠️ Cámara activa, pero no veo tu rostro</p>
-                        <p style={{fontSize: '0.9rem'}}>Colócate frente a la cámara.</p>
-                    </>
-                )}
+              {!loaded ? (
+                <p>⏳ Cargando modelos de IA...</p>
+              ) : cameraError ? (
+                <p style={{ color: '#ff4d4d', fontWeight: 'bold' }}>❌ Error de Cámara</p>
+              ) : !cameraReady ? (
+                <p>📷 Iniciando cámara...</p>
+              ) : faceDetected ? (
+                <>
+                  {/* Si todo está bien y detecta cara, sale verde */}
+                  <p style={{ color: '#4caf50', fontWeight: 'bold', fontSize: '1.1rem' }}>✅ Rostro Detectado</p>
+                  <p style={{ fontSize: '0.9rem' }}>El sistema funciona correctamente.</p>
+
+                  {/* 👇 AGREGA ESTO PARA USAR LA VARIABLE Y CORREGIR EL ERROR TS6133 */}
+                  {smoothedEmotion && (
+                    <p style={{ fontSize: "0.85rem", color: "#666", marginTop: "5px", textTransform: "capitalize" }}>
+                      Detectando: <strong>{Object.keys(smoothedEmotion).reduce((a, b) => smoothedEmotion[a] > smoothedEmotion[b] ? a : b)}</strong>
+                    </p>
+                  )}
+                  {/* 👆 FIN DEL AGREGADO */}
+
+                </>
+              ) : (
+                <>
+                  {/* Si la cámara prende pero no ve cara, sale naranja */}
+                  <p style={{ color: '#ff9800', fontWeight: 'bold' }}>⚠️ Cámara activa, pero no veo tu rostro</p>
+                  <p style={{ fontSize: '0.9rem' }}>Colócate frente a la cámara.</p>
+                </>
+              )}
             </div>
           </div>
         </section>
@@ -600,16 +609,16 @@ export const EmotionDetector: React.FC = () => {
 
 
 
-       
 
 
-          <div className="emotion-actions" style={{display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center'}}>
-          
+
+        <div className="emotion-actions" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+
           {/* 🆕 CAMBIO 7: Mensaje de ayuda si hay error de permisos */}
           {cameraError && (
-              <div style={{backgroundColor: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '5px'}}>
-                  ⚠️ <strong>Atención:</strong> Debes dar permisos a la cámara en el navegador.
-              </div>
+            <div style={{ backgroundColor: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '5px' }}>
+              ⚠️ <strong>Atención:</strong> Debes dar permisos a la cámara en el navegador.
+            </div>
           )}
 
           {/* 🆕 CAMBIO 8: BLOQUEO DEL BOTÓN.
@@ -621,19 +630,19 @@ export const EmotionDetector: React.FC = () => {
           <button
             className="btn-questionary"
             onClick={() => setStep("instructions")}
-            disabled={!cameraReady || !loaded || !!cameraError} 
-            style={{ 
-                // Estilo visual para que parezca deshabilitado
-                opacity: (!cameraReady || !loaded || !!cameraError) ? 0.5 : 1,
-                cursor: (!cameraReady || !loaded || !!cameraError) ? 'not-allowed' : 'pointer',
-                backgroundColor: cameraError ? '#666' : undefined
+            disabled={!cameraReady || !loaded || !!cameraError}
+            style={{
+              // Estilo visual para que parezca deshabilitado
+              opacity: (!cameraReady || !loaded || !!cameraError) ? 0.5 : 1,
+              cursor: (!cameraReady || !loaded || !!cameraError) ? 'not-allowed' : 'pointer',
+              backgroundColor: cameraError ? '#666' : undefined
             }}
           >
             {/* Texto dinámico del botón según el estado */}
-            {cameraError ? "Habilita la cámara para continuar" : 
-             !loaded ? "Cargando IA..." : 
-             !cameraReady ? "Esperando cámara..." : 
-             "Continuar a Instrucciones"}
+            {cameraError ? "Habilita la cámara para continuar" :
+              !loaded ? "Cargando IA..." :
+                !cameraReady ? "Esperando cámara..." :
+                  "Continuar a Instrucciones"}
           </button>
         </div>
       </div>
@@ -641,240 +650,240 @@ export const EmotionDetector: React.FC = () => {
     );
   }
 
-// 2. INSTRUCCIONES
-if (step === "instructions") {
-  return (
-    <div className="questionnaire-page">
-      <header className="questionnaire-header">
-        <h1>Instrucciones del Test</h1>
-      </header>
+  // 2. INSTRUCCIONES
+  if (step === "instructions") {
+    return (
+      <div className="questionnaire-page">
+        <header className="questionnaire-header">
+          <h1>Instrucciones del Test</h1>
+        </header>
 
-      <div className="questionnaire-grid">
-        <section className="card card-pss">
-          <h3>Sobre la Escala de Estrés Percibido (PSS-10)</h3>
-
-          <div
-            style={{
-              fontSize: "1rem",
-              lineHeight: "1.6",
-              color: "#444",
-              textAlign: "left",
-            }}
-          >
-            <p>
-              A continuación, encontrarás 10 preguntas sobre tus sentimientos y
-              pensamientos durante el <strong>último mes</strong>.
-            </p>
-
-            <ul style={{ margin: "20px 0", paddingLeft: "20px" }}>
-              <li style={{ marginBottom: "10px" }}>
-                <strong>Objetivo:</strong> Evaluar cuán impredecible,
-                incontrolable y sobrecargada sientes tu vida actualmente.
-              </li>
-              <li style={{ marginBottom: "10px" }}>
-                <strong>Cómo responder:</strong> No intentes contar el número
-                exacto de veces que te has sentido de una manera particular.
-                Marca la alternativa que mejor represente tu estimación
-                general.
-              </li>
-            </ul>
+        <div className="questionnaire-grid">
+          <section className="card card-pss">
+            <h3>Sobre la Escala de Estrés Percibido (PSS-10)</h3>
 
             <div
-              className="alert-info"
               style={{
-                backgroundColor: "#e3f2fd",
-                padding: "15px",
-                borderRadius: "8px",
-                marginTop: "20px",
-                borderLeft: "5px solid #2196f3",
+                fontSize: "1rem",
+                lineHeight: "1.6",
+                color: "#444",
+                textAlign: "left",
               }}
             >
-              ℹ️ <strong>Atención:</strong> Para garantizar una lectura
-              emocional precisa, cada pregunta tendrá un{" "}
-              <strong>temporizador de 25 segundos</strong> antes de poder
-              avanzar a la siguiente.
-              <br />
-              <strong>
-                Tus datos faciales comenzarán a grabarse al iniciar el test.
-              </strong>
+              <p>
+                A continuación, encontrarás 10 preguntas sobre tus sentimientos y
+                pensamientos durante el <strong>último mes</strong>.
+              </p>
+
+              <ul style={{ margin: "20px 0", paddingLeft: "20px" }}>
+                <li style={{ marginBottom: "10px" }}>
+                  <strong>Objetivo:</strong> Evaluar cuán impredecible,
+                  incontrolable y sobrecargada sientes tu vida actualmente.
+                </li>
+                <li style={{ marginBottom: "10px" }}>
+                  <strong>Cómo responder:</strong> No intentes contar el número
+                  exacto de veces que te has sentido de una manera particular.
+                  Marca la alternativa que mejor represente tu estimación
+                  general.
+                </li>
+              </ul>
+
+              <div
+                className="alert-info"
+                style={{
+                  backgroundColor: "#e3f2fd",
+                  padding: "15px",
+                  borderRadius: "8px",
+                  marginTop: "20px",
+                  borderLeft: "5px solid #2196f3",
+                }}
+              >
+                ℹ️ <strong>Atención:</strong> Para garantizar una lectura
+                emocional precisa, cada pregunta tendrá un{" "}
+                <strong>temporizador de 25 segundos</strong> antes de poder
+                avanzar a la siguiente.
+                <br />
+                <strong>
+                  Tus datos faciales comenzarán a grabarse al iniciar el test.
+                </strong>
+              </div>
             </div>
-          </div>
 
-          <div style={{ marginTop: "30px" }}>
-            <button
-              className="btn-finish"
-              onClick={() => setStep("questionnaire")}
-              style={{ width: "100%", cursor: "pointer" }}
-            >
-              Entendido, Iniciar Test
-            </button>
-          </div>
-        </section>
+            <div style={{ marginTop: "30px" }}>
+              <button
+                className="btn-finish"
+                onClick={() => setStep("questionnaire")}
+                style={{ width: "100%", cursor: "pointer" }}
+              >
+                Entendido, Iniciar Test
+              </button>
+            </div>
+          </section>
 
-        <section className="card card-camera">
-          <h3>Monitor de Emociones</h3>
-          {renderCameraPanel()}
-        </section>
+          <section className="card card-camera">
+            <h3>Monitor de Emociones</h3>
+            {renderCameraPanel()}
+          </section>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-// 3. CUESTIONARIO
-if (step === "questionnaire") {
-  const currentQuestion = QUESTIONS[currentIndex];
-  const currentAnswer = answers[currentIndex];
-  const hasAnswered = currentAnswer !== -1;
-  const timeCompleted = seconds >= QUESTION_TIME;
-  const canContinue = hasAnswered && timeCompleted;
-  const isLastQuestion = currentIndex === QUESTIONS.length - 1;
+  // 3. CUESTIONARIO
+  if (step === "questionnaire") {
+    const currentQuestion = QUESTIONS[currentIndex];
+    const currentAnswer = answers[currentIndex];
+    const hasAnswered = currentAnswer !== -1;
+    const timeCompleted = seconds >= QUESTION_TIME;
+    const canContinue = hasAnswered && timeCompleted;
+    const isLastQuestion = currentIndex === QUESTIONS.length - 1;
 
-  return (
-    <div className="questionnaire-page">
-      <header className="questionnaire-header">
-        <h1>Evaluación de Estrés</h1>
-      </header>
+    return (
+      <div className="questionnaire-page">
+        <header className="questionnaire-header">
+          <h1>Evaluación de Estrés</h1>
+        </header>
 
-      <div className="questionnaire-grid">
-        <section className="card card-pss">
-          <h3>
-            Pregunta {currentIndex + 1} de {QUESTIONS.length}
-          </h3>
+        <div className="questionnaire-grid">
+          <section className="card card-pss">
+            <h3>
+              Pregunta {currentIndex + 1} de {QUESTIONS.length}
+            </h3>
 
-          <div className="pss-question-row">
-            <p
-              className="pss-question-text"
-              style={{
-                fontSize: "1.2rem",
-                fontWeight: "bold",
-                margin: "20px 0",
-              }}
-            >
-              {currentQuestion.text}
-            </p>
+            <div className="pss-question-row">
+              <p
+                className="pss-question-text"
+                style={{
+                  fontSize: "1.2rem",
+                  fontWeight: "bold",
+                  margin: "20px 0",
+                }}
+              >
+                {currentQuestion.text}
+              </p>
 
-            <div
-              className="pss-options"
-              style={{ display: "flex", flexDirection: "column", gap: "10px" }}
-            >
-              {scaleOptions.map((opt) => (
-                <label
-                  key={opt.value}
-                  className="pss-option"
-                  style={{
-                    padding: "10px",
-                    border: "1px solid #ccc",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    backgroundColor:
-                      currentAnswer === opt.value ? "#e0f7fa" : "white",
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name={`q${currentIndex}`}
-                    value={opt.value}
-                    checked={currentAnswer === opt.value}
-                    onChange={() => handleAnswerChange(opt.value)}
-                  />
-                  <span>{opt.label}</span>
-                </label>
-              ))}
+              <div
+                className="pss-options"
+                style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+              >
+                {scaleOptions.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="pss-option"
+                    style={{
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      backgroundColor:
+                        currentAnswer === opt.value ? "#e0f7fa" : "white",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name={`q${currentIndex}`}
+                      value={opt.value}
+                      checked={currentAnswer === opt.value}
+                      onChange={() => handleAnswerChange(opt.value)}
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div style={{ marginTop: "20px", color: "#555" }}>
-            <p>
-              Siguiente habilitado en: {Math.max(0, QUESTION_TIME - seconds)}s
-            </p>
-            <div
-              style={{
-                width: "100%",
-                height: "10px",
-                background: "#eee",
-                borderRadius: "5px",
-                overflow: "hidden",
-              }}
-            >
+            <div style={{ marginTop: "20px", color: "#555" }}>
+              <p>
+                Siguiente habilitado en: {Math.max(0, QUESTION_TIME - seconds)}s
+              </p>
               <div
                 style={{
-                  width: `${(seconds / QUESTION_TIME) * 100}%`,
-                  height: "100%",
-                  background: canContinue ? "#4caf50" : "#ff9800",
-                  transition: "width 1s linear",
+                  width: "100%",
+                  height: "10px",
+                  background: "#eee",
+                  borderRadius: "5px",
+                  overflow: "hidden",
                 }}
-              />
+              >
+                <div
+                  style={{
+                    width: `${(seconds / QUESTION_TIME) * 100}%`,
+                    height: "100%",
+                    background: canContinue ? "#4caf50" : "#ff9800",
+                    transition: "width 1s linear",
+                  }}
+                />
+              </div>
             </div>
-          </div>
 
-          {!hasAnswered && (
-            <p
-              style={{
-                color: "orange",
-                fontSize: "0.9rem",
-                marginTop: "10px",
-              }}
-            >
-              ⚠️ Selecciona una respuesta.
-            </p>
-          )}
-          {hasAnswered && !timeCompleted && (
-            <p
-              style={{
-                color: "#2196f3",
-                fontSize: "0.9rem",
-                marginTop: "10px",
-              }}
-            >
-              ⏳ Analizando emociones... espera el temporizador.
-            </p>
-          )}
+            {!hasAnswered && (
+              <p
+                style={{
+                  color: "orange",
+                  fontSize: "0.9rem",
+                  marginTop: "10px",
+                }}
+              >
+                ⚠️ Selecciona una respuesta.
+              </p>
+            )}
+            {hasAnswered && !timeCompleted && (
+              <p
+                style={{
+                  color: "#2196f3",
+                  fontSize: "0.9rem",
+                  marginTop: "10px",
+                }}
+              >
+                ⏳ Analizando emociones... espera el temporizador.
+              </p>
+            )}
 
-          <div style={{ marginTop: "20px" }}>
-            <button
-              className="btn-finish"
-              disabled={!canContinue || submitting}
-              onClick={handleNextOrFinish}
-              style={{
-                opacity: canContinue ? 1 : 0.5,
-                cursor: canContinue ? "pointer" : "not-allowed",
-                width: "100%",
-              }}
-            >
-              {submitting
-                ? "Enviando..."
-                : isLastQuestion
-                  ? "Finalizar Cuestionario"
-                  : "Siguiente Pregunta"}
-            </button>
-          </div>
-        </section>
+            <div style={{ marginTop: "20px" }}>
+              <button
+                className="btn-finish"
+                disabled={!canContinue || submitting}
+                onClick={handleNextOrFinish}
+                style={{
+                  opacity: canContinue ? 1 : 0.5,
+                  cursor: canContinue ? "pointer" : "not-allowed",
+                  width: "100%",
+                }}
+              >
+                {submitting
+                  ? "Enviando..."
+                  : isLastQuestion
+                    ? "Finalizar Cuestionario"
+                    : "Siguiente Pregunta"}
+              </button>
+            </div>
+          </section>
 
-        <section className="card card-camera">
-          <h3>Monitor de Emociones (GRABANDO)</h3>
-          {renderCameraPanel()}
-        </section>
+          <section className="card card-camera">
+            <h3>Monitor de Emociones (GRABANDO)</h3>
+            {renderCameraPanel()}
+          </section>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. COMPLETADO
+  return (
+    <div className="completed-page">
+      <div className="completed-card">
+        <h2>¡Cuestionario completado!</h2>
+        <p>
+          Gracias por completar la evaluación. Tus respuestas han sido
+          registradas y procesadas.
+        </p>
+        <button className="btn-view-results" onClick={handleViewResults}>
+          Ver Resultados
+        </button>
       </div>
     </div>
   );
-}
-
-// 4. COMPLETADO
-return (
-  <div className="completed-page">
-    <div className="completed-card">
-      <h2>¡Cuestionario completado!</h2>
-      <p>
-        Gracias por completar la evaluación. Tus respuestas han sido
-        registradas y procesadas.
-      </p>
-      <button className="btn-view-results" onClick={handleViewResults}>
-        Ver Resultados
-      </button>
-    </div>
-  </div>
-);
 };
