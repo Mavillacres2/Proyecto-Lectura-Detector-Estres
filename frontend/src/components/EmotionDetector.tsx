@@ -50,8 +50,10 @@ export const EmotionDetector: React.FC = () => {
   const isRecordingRef = useRef(false);
 
   const [loaded, setLoaded] = useState(false);
-  const [setSmoothBuffer] = useState<any[]>([]);
-  //const [smoothedEmotion, setSmoothedEmotion] = useState<any>(null);
+  type Expressions = Record<string, number>;
+
+  const [smoothBuffer, setSmoothBuffer] = useState<Expressions[]>([]);
+
   const [fps, setFps] = useState(0);
   const [resolution, setResolution] = useState({ width: 0, height: 0 });
 
@@ -196,8 +198,8 @@ export const EmotionDetector: React.FC = () => {
     return () => clearInterval(intervalId);
   }, [currentIndex, step]);
 
-  const computeSmoothEmotion = (expressions: any) => {
-    setSmoothBuffer((prev) => {
+  const computeSmoothEmotion = (expressions: Expressions) => {
+    setSmoothBuffer((prev: Expressions[]) => {
       const updated = [...prev, expressions];
       if (updated.length > 3) updated.shift();
       return updated;
@@ -305,7 +307,7 @@ export const EmotionDetector: React.FC = () => {
               emotions: cleanExpressions,
               timestamp: Date.now() / 1000,
             };
-            sendEmotionHTTP(payload).catch(() => {});
+            sendEmotionHTTP(payload).catch(() => { });
             lastSend = now;
           }
         }
@@ -439,12 +441,12 @@ export const EmotionDetector: React.FC = () => {
       cameraStatus === "ready"
         ? "✅ Cámara activa"
         : cameraStatus === "requesting"
-        ? "⏳ Solicitando permisos..."
-        : cameraStatus === "denied"
-        ? "🚫 Permiso denegado"
-        : cameraStatus === "error"
-        ? "⚠️ Error de cámara"
-        : "ℹ️ Sin iniciar";
+          ? "⏳ Solicitando permisos..."
+          : cameraStatus === "denied"
+            ? "🚫 Permiso denegado"
+            : cameraStatus === "error"
+              ? "⚠️ Error de cámara"
+              : "ℹ️ Sin iniciar";
 
     return (
       <div className="emotion-page">
