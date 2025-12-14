@@ -15,6 +15,9 @@ type Step = "intro" | "instructions" | "questionnaire" | "completed";
 
 // ✅ CAMBIO PERMISOS: estados de cámara
 type CameraStatus = "idle" | "requesting" | "ready" | "denied" | "error";
+
+type Expressions = Record<string, number>;
+
 const isNotAllowed = (err: any) =>
   err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError";
 
@@ -50,7 +53,7 @@ export const EmotionDetector: React.FC = () => {
   const isRecordingRef = useRef(false);
 
   const [loaded, setLoaded] = useState(false);
-  type Expressions = Record<string, number>;
+  
 
   const [smoothBuffer, setSmoothBuffer] = useState<Expressions[]>([]);
 
