@@ -1,7 +1,6 @@
 import "../../styles/glass.css";
 import { useState } from "react";
 import { registerUser } from "../../services/authService";
-// 👇 Importa Link
 import { useNavigate, Link } from "react-router-dom";
 
 export default function Register() {
@@ -16,45 +15,31 @@ export default function Register() {
     gender: "M",
   });
 
-  // Estado para guardar los errores de validación
   const [errors, setErrors] = useState<any>({});
 
   const handleChange = (e: any) => {
-    // Limpiamos el error del campo que se está escribiendo para mejorar la UX
     setErrors({ ...errors, [e.target.name]: "" });
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // Función de validación
   const validate = () => {
     const newErrors: any = {};
-
     if (!form.full_name.trim()) newErrors.full_name = "El nombre es obligatorio.";
-    
-    // Regex simple para validar email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(form.email)) newErrors.email = "Ingresa un correo válido.";
-
-    if (form.password.length < 6) newErrors.password = "La contraseña debe tener al menos 6 caracteres.";
-    
+    if (form.password.length < 6) newErrors.password = "Mínimo 6 caracteres.";
     if (form.password !== form.confirm) newErrors.confirm = "Las contraseñas no coinciden.";
-
-    // 🔞 VALIDACIÓN DE EDAD (Límite 18)
     if (!form.age) {
         newErrors.age = "La edad es obligatoria.";
     } else if (Number(form.age) < 18) {
-        newErrors.age = "Debes tener al menos 18 años para registrarte.";
+        newErrors.age = "Debes ser mayor de 18.";
     }
-
     setErrors(newErrors);
-    // Retorna true si no hay errores
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
-    // 1. Ejecutamos validación antes de enviar
     if (!validate()) return;
-
     try {
       await registerUser({
         full_name: form.full_name,
@@ -63,109 +48,127 @@ export default function Register() {
         age: Number(form.age),
         gender: form.gender,
       });
-
       alert("Usuario registrado exitosamente");
       nav("/login");
     } catch (err: any) {
-      console.log(err.response);
       alert(err.response?.data?.detail || "Error al registrar usuario");
     }
   };
 
-  // Estilos
+  // Estilos inline para ajuste rápido
+  const containerStyle = {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "15px", // Espacio uniforme entre elementos
+    padding: "20px",
+    width: "100%",
+    maxWidth: "400px"
+  };
+
   const inputStyle = {
+    padding: "12px",
+    borderRadius: "8px",
+    border: "1px solid rgba(255, 255, 255, 0.5)",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     color: "#333",
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    fontWeight: "500",
-    border: "1px solid rgba(255, 255, 255, 0.5)"
+    fontSize: "1rem",
+    width: "100%",
+    boxSizing: "border-box" as const
   };
 
   const errorStyle = {
-    color: "#ff4d4d",
-    fontSize: "0.85rem",
-    marginTop: "-10px",
-    marginBottom: "10px",
-    textAlign: "left" as const,
-    display: "block",
+    color: "#e74c3c", // Rojo más legible
+    fontSize: "0.8rem",
     fontWeight: "bold",
-    textShadow: "0px 0px 2px rgba(0,0,0,0.2)"
+    textAlign: "left" as const,
+    marginTop: "-10px", // Pegadito al input pero abajo
+    paddingLeft: "5px"
   };
 
   return (
     <div className="page-center">
-      <div className="glass-box">
-        <h2>Registro</h2>
+      <div className="glass-box" style={containerStyle}>
+        <h2 style={{ marginBottom: "10px", color: "#fff" }}>Registro</h2>
 
         {/* Nombre */}
-        <input 
-            className="glass-input" 
-            name="full_name" 
-            placeholder="Nombre Completo" 
-            onChange={handleChange} 
-            style={inputStyle} 
-        />
-        {errors.full_name && <span style={errorStyle}>{errors.full_name}</span>}
+        <div>
+            <input 
+              name="full_name" 
+              placeholder="Nombre Completo" 
+              onChange={handleChange} 
+              style={inputStyle} 
+            />
+            {errors.full_name && <div style={errorStyle}>{errors.full_name}</div>}
+        </div>
 
         {/* Email */}
-        <input 
-            className="glass-input" 
-            name="email" 
-            placeholder="Email" 
-            onChange={handleChange} 
-            style={inputStyle} 
-        />
-        {errors.email && <span style={errorStyle}>{errors.email}</span>}
+        <div>
+            <input 
+              name="email" 
+              placeholder="Correo Electrónico" 
+              onChange={handleChange} 
+              style={inputStyle} 
+            />
+            {errors.email && <div style={errorStyle}>{errors.email}</div>}
+        </div>
 
         {/* Password */}
-        <input 
-            className="glass-input" 
-            type="password" 
-            name="password" 
-            placeholder="Contraseña" 
-            onChange={handleChange} 
-            style={inputStyle} 
-        />
-        {errors.password && <span style={errorStyle}>{errors.password}</span>}
+        <div>
+            <input 
+              type="password" 
+              name="password" 
+              placeholder="Contraseña" 
+              onChange={handleChange} 
+              style={inputStyle} 
+            />
+            {errors.password && <div style={errorStyle}>{errors.password}</div>}
+        </div>
 
-        {/* Confirm Password */}
-        <input 
-            className="glass-input" 
-            type="password" 
-            name="confirm" 
-            placeholder="Confirmar Contraseña" 
-            onChange={handleChange} 
-            style={inputStyle} 
-        />
-        {errors.confirm && <span style={errorStyle}>{errors.confirm}</span>}
+        {/* Confirm */}
+        <div>
+            <input 
+              type="password" 
+              name="confirm" 
+              placeholder="Confirmar Contraseña" 
+              onChange={handleChange} 
+              style={inputStyle} 
+            />
+            {errors.confirm && <div style={errorStyle}>{errors.confirm}</div>}
+        </div>
 
-        {/* Edad */}
-        <input
-          className="glass-input"
-          name="age"
-          placeholder="Edad"
-          type="number"
-          onChange={handleChange}
-          style={inputStyle}
-        />
-        {errors.age && <span style={errorStyle}>{errors.age}</span>}
+        {/* Edad y Género en fila (Opcional, para ahorrar espacio) */}
+        <div style={{ display: "flex", gap: "10px" }}>
+            <div style={{ flex: 1 }}>
+                <input
+                  name="age"
+                  placeholder="Edad"
+                  type="number"
+                  onChange={handleChange}
+                  style={inputStyle}
+                />
+                {errors.age && <div style={errorStyle}>{errors.age}</div>}
+            </div>
+            <div style={{ flex: 1 }}>
+                <select
+                  name="gender"
+                  value={form.gender}
+                  onChange={handleChange}
+                  style={{ ...inputStyle, cursor: "pointer" }}
+                >
+                  <option value="M">Masculino</option>
+                  <option value="F">Femenino</option>
+                  <option value="O">Otro</option>
+                </select>
+            </div>
+        </div>
 
-        {/* Género */}
-        <select
-          className="glass-input"
-          name="gender"
-          value={form.gender}
-          onChange={handleChange}
-          style={inputStyle}
-        >
-          <option value="M">Masculino</option>
-          <option value="F">Femenino</option>
-          <option value="O">Otro</option>
-          <option value="ND">No deseo decirlo</option>
-        </select>
+        <button className="glass-btn" onClick={handleSubmit} style={{ marginTop: "10px" }}>
+            Crear Cuenta
+        </button>
 
-        <button className="glass-btn" onClick={handleSubmit}>Crear Cuenta</button>
-
-        <p>¿Ya tienes una cuenta? <Link to="/login">Inicia Sesión</Link></p>
+        <p style={{ fontSize: "0.9rem", color: "#fff" }}>
+            ¿Ya tienes cuenta? <Link to="/login" style={{ color: "#ffd700", fontWeight: "bold" }}>Inicia Sesión</Link>
+        </p>
       </div>
     </div>
   );
