@@ -6,6 +6,9 @@ import { useNavigate, Link } from "react-router-dom";
 export default function Register() {
   const nav = useNavigate();
 
+  // 1. Estado de carga para evitar doble envío y avisar al usuario
+  const [loading, setLoading] = useState(false);
+
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -33,23 +36,19 @@ export default function Register() {
     if (form.password.length < 6) newErrors.password = "Mínimo 6 caracteres.";
     if (form.password !== form.confirm) newErrors.confirm = "Las contraseñas no coinciden.";
 
-    // 🔞 VALIDACIÓN DE EDAD MEJORADA
+    // 🔞 VALIDACIÓN DE EDAD
     if (!form.age) {
       newErrors.age = "La edad es obligatoria.";
     } else if (Number(form.age) < 18) {
       newErrors.age = "Debes tener al menos 18 años.";
-    } else if (Number(form.age) > 45) { // 🚫 Límite superior 
+    } else if (Number(form.age) > 45) { 
       newErrors.age = "Edad no válida para este sistema.";
     }
 
-    // --- NUEVA VALIDACIÓN DE GÉNERO ---
+    // --- VALIDACIÓN DE GÉNERO ---
     if (!form.gender) {
-      // Esto evita que se envíe el formulario si no eligen nada
-      // Puedes mostrar un error o simplemente no dejar pasar
       alert("Por favor selecciona un género");
       return false;
-      // O si prefieres usar tu sistema de errores visuales:
-      //newErrors.gender = "Selecciona un género";
     }
 
     setErrors(newErrors);
@@ -58,6 +57,10 @@ export default function Register() {
 
   const handleSubmit = async () => {
     if (!validate()) return;
+
+    // 2. Iniciamos carga
+    setLoading(true);
+
     try {
       await registerUser({
         full_name: form.full_name,
@@ -66,10 +69,17 @@ export default function Register() {
         age: Number(form.age),
         gender: form.gender,
       });
+      
       alert("Usuario registrado exitosamente");
       nav("/login");
+
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Error al registrar usuario");
+      console.error(err);
+      // Mensaje mejorado por si es un timeout
+      alert(err.response?.data?.detail || "Error al registrar. Si el servidor estaba dormido, intenta de nuevo en unos segundos.");
+    } finally {
+      // 3. Terminamos carga pase lo que pase
+      setLoading(false);
     }
   };
 
@@ -125,6 +135,7 @@ export default function Register() {
             placeholder="Nombre y Apellido"
             onChange={handleChange}
             style={inputStyle}
+            disabled={loading} // Bloqueado si carga
           />
           {errors.full_name && <div style={errorStyle}>{errors.full_name}</div>}
         </div>
@@ -136,6 +147,7 @@ export default function Register() {
             placeholder="Correo Electrónico"
             onChange={handleChange}
             style={inputStyle}
+            disabled={loading} // Bloqueado si carga
           />
           {errors.email && <div style={errorStyle}>{errors.email}</div>}
         </div>
@@ -148,6 +160,7 @@ export default function Register() {
             placeholder="Contraseña (mínimo 6 caracteres)"
             onChange={handleChange}
             style={inputStyle}
+            disabled={loading} // Bloqueado si carga
           />
           {errors.password && <div style={errorStyle}>{errors.password}</div>}
         </div>
@@ -160,6 +173,7 @@ export default function Register() {
             placeholder="Confirmar Contraseña"
             onChange={handleChange}
             style={inputStyle}
+            disabled={loading} // Bloqueado si carga
           />
           {errors.confirm && <div style={errorStyle}>{errors.confirm}</div>}
         </div>
@@ -167,22 +181,21 @@ export default function Register() {
         {/* Edad y Género */}
         <div style={{ display: "flex", gap: "15px", width: "100%" }}>
 
-
           {/* Edad */}
           <div style={{ flex: 1, ...fieldGroupStyle }}>
             <input
               name="age"
               placeholder="Edad"
-              type="number" // Mantenlo number
+              type="number"
               onChange={(e) => {
-                // Truco: Si escribe más de 2 números, lo cortamos
                 if (e.target.value.length > 2) return;
                 handleChange(e);
               }}
-              value={form.age} // Importante: Vincular el valor al estado
+              value={form.age}
               style={inputStyle}
               min="1"
               max="99"
+              disabled={loading} // Bloqueado si carga
             />
             {errors.age && <div style={errorStyle}>{errors.age}</div>}
           </div>
@@ -192,16 +205,14 @@ export default function Register() {
               name="gender"
               value={form.gender}
               onChange={handleChange}
-              // Si el valor es "", mostramos el color gris (placeholder), si no, negro
+              disabled={loading} // Bloqueado si carga
               style={{
                 ...inputStyle,
-                cursor: "pointer",
+                cursor: loading ? "wait" : "pointer",
                 color: form.gender === "" ? "#757575" : "#333"
               }}
             >
-              {/* Opción Placeholder */}
               <option value="" disabled hidden>Género</option>
-
               <option value="M">Masculino</option>
               <option value="F">Femenino</option>
               <option value="O">Otro</option>
@@ -209,8 +220,18 @@ export default function Register() {
           </div>
         </div>
 
-        <button className="glass-btn" onClick={handleSubmit} style={{ marginTop: "15px", padding: "12px" }}>
-          Crear Cuenta
+        <button 
+            className="glass-btn" 
+            onClick={handleSubmit} 
+            disabled={loading} // Deshabilita click múltiple
+            style={{ 
+                marginTop: "15px", 
+                padding: "12px",
+                opacity: loading ? 0.7 : 1, // Feedback visual
+                cursor: loading ? "wait" : "pointer" 
+            }}
+        >
+          {loading ? "Creando cuenta..." : "Crear Cuenta"}
         </button>
 
         <p style={{ fontSize: "0.95rem", color: "#fff", marginTop: "15px" }}>
