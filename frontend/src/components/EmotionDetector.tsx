@@ -65,6 +65,9 @@ export const EmotionDetector: React.FC = () => {
   const [resultsData, setResultsData] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // 🔧 FIX: ref para evitar closure bug con `step`
+  const stepRef = useRef<Step>("intro");
+
   // Cámara
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>("idle");
   const [cameraReady, setCameraReady] = useState(false);
@@ -123,6 +126,11 @@ export const EmotionDetector: React.FC = () => {
   useEffect(() => {
     isRecordingRef.current = step === "questionnaire";
   }, [step]);
+
+  useEffect(() => {
+  stepRef.current = step;
+}, [step]);
+
 
   // ======== Modelos ========
   const loadModels = async () => {
