@@ -6,7 +6,6 @@ import { useNavigate, Link } from "react-router-dom";
 export default function Register() {
   const nav = useNavigate();
 
-  // 1. Estado de carga para evitar doble envío y avisar al usuario
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
@@ -20,83 +19,118 @@ export default function Register() {
 
   const [errors, setErrors] = useState<any>({});
 
+  // ============================
+  // 🔤 Manejo de cambios
+  // ============================
   const handleChange = (e: any) => {
-    setErrors({ ...errors, [e.target.name]: "" });
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    // ❌ Bloquear números y símbolos en nombre
+    if (name === "full_name") {
+      const cleanValue = value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, "");
+      setForm({ ...form, full_name: cleanValue });
+      setErrors({ ...errors, full_name: "" });
+      return;
+    }
+
+    setErrors({ ...errors, [name]: "" });
+    setForm({ ...form, [name]: value });
   };
 
+  // ============================
+  // ✅ Validaciones
+  // ============================
   const validate = () => {
     const newErrors: any = {};
 
-    if (!form.full_name.trim()) newErrors.full_name = "El nombre es obligatorio.";
+    // --- NOMBRE ---
+    if (!form.full_name.trim()) {
+      newErrors.full_name = "El nombre y apellido son obligatorios.";
+    } else if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(form.full_name)) {
+      newErrors.full_name = "Solo se permiten letras y espacios.";
+    }
 
+    // --- EMAIL ---
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(form.email)) newErrors.email = "Ingresa un correo válido.";
+    if (!emailRegex.test(form.email)) {
+      newErrors.email = "Ingresa un correo válido.";
+    }
 
-    if (form.password.length < 6) newErrors.password = "Mínimo 6 caracteres.";
-    if (form.password !== form.confirm) newErrors.confirm = "Las contraseñas no coinciden.";
+    // --- PASSWORD SEGURA ---
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{6,}$/;
+    if (!passwordRegex.test(form.password)) {
+      newErrors.password =
+        "Mínimo 6 caracteres, incluir un número y un símbolo.";
+    }
 
-    // 🔞 VALIDACIÓN DE EDAD
+    if (form.password !== form.confirm) {
+      newErrors.confirm = "Las contraseñas no coinciden.";
+    }
+
+    // --- EDAD ---
     if (!form.age) {
       newErrors.age = "La edad es obligatoria.";
     } else if (Number(form.age) < 18) {
       newErrors.age = "Debes tener al menos 18 años.";
-    } else if (Number(form.age) > 45) { 
+    } else if (Number(form.age) > 45) {
       newErrors.age = "Edad no válida para este sistema.";
     }
 
-    // --- VALIDACIÓN DE GÉNERO ---
+    // --- GÉNERO ---
     if (!form.gender) {
-      alert("Por favor selecciona un género");
-      return false;
+      newErrors.gender = "Selecciona un género.";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  // ============================
+  // 📤 Envío
+  // ============================
   const handleSubmit = async () => {
     if (!validate()) return;
 
-    // 2. Iniciamos carga
     setLoading(true);
 
     try {
       await registerUser({
-        full_name: form.full_name,
+        full_name: form.full_name.trim(),
         email: form.email,
         password: form.password,
         age: Number(form.age),
         gender: form.gender,
       });
-      
+
       alert("Usuario registrado exitosamente");
       nav("/login");
-
     } catch (err: any) {
       console.error(err);
-      // Mensaje mejorado por si es un timeout
-      alert(err.response?.data?.detail || "Error al registrar. Si el servidor estaba dormido, intenta de nuevo en unos segundos.");
+      alert(
+        err.response?.data?.detail ||
+          "Error al registrar. Intenta nuevamente en unos segundos."
+      );
     } finally {
-      // 3. Terminamos carga pase lo que pase
       setLoading(false);
     }
   };
 
-  // --- ESTILOS ---
+  // ============================
+  // 🎨 Estilos
+  // ============================
   const containerStyle = {
     display: "flex",
     flexDirection: "column" as const,
     gap: "15px",
     padding: "30px",
     width: "100%",
-    maxWidth: "450px"
+    maxWidth: "450px",
   };
 
   const fieldGroupStyle = {
     display: "flex",
     flexDirection: "column" as const,
-    width: "100%"
+    width: "100%",
   };
 
   const inputStyle = {
@@ -108,7 +142,7 @@ export default function Register() {
     fontSize: "1rem",
     width: "100%",
     boxSizing: "border-box" as const,
-    outline: "none"
+    outline: "none",
   };
 
   const errorStyle = {
@@ -118,24 +152,25 @@ export default function Register() {
     textAlign: "left" as const,
     marginTop: "5px",
     paddingLeft: "5px",
-    textShadow: "0px 0px 1px rgba(255,255,255,0.8)"
   };
 
+  // ============================
+  // 🧩 UI
+  // ============================
   return (
     <div className="page-center">
       <div className="glass-box" style={containerStyle}>
-        <h2 style={{ marginBottom: "20px", color: "#fff", textShadow: "0 2px 4px rgba(0,0,0,0.2)" }}>
-          Registro
-        </h2>
+        <h2 style={{ marginBottom: "20px", color: "#fff" }}>Registro</h2>
 
         {/* Nombre */}
         <div style={fieldGroupStyle}>
           <input
             name="full_name"
             placeholder="Nombre y Apellido"
+            value={form.full_name}
             onChange={handleChange}
             style={inputStyle}
-            disabled={loading} // Bloqueado si carga
+            disabled={loading}
           />
           {errors.full_name && <div style={errorStyle}>{errors.full_name}</div>}
         </div>
@@ -145,9 +180,10 @@ export default function Register() {
           <input
             name="email"
             placeholder="Correo Electrónico"
+            value={form.email}
             onChange={handleChange}
             style={inputStyle}
-            disabled={loading} // Bloqueado si carga
+            disabled={loading}
           />
           {errors.email && <div style={errorStyle}>{errors.email}</div>}
         </div>
@@ -157,10 +193,11 @@ export default function Register() {
           <input
             type="password"
             name="password"
-            placeholder="Contraseña (mínimo 6 caracteres)"
+            placeholder="Contraseña (6+ caracteres, número y símbolo)"
+            value={form.password}
             onChange={handleChange}
             style={inputStyle}
-            disabled={loading} // Bloqueado si carga
+            disabled={loading}
           />
           {errors.password && <div style={errorStyle}>{errors.password}</div>}
         </div>
@@ -171,31 +208,27 @@ export default function Register() {
             type="password"
             name="confirm"
             placeholder="Confirmar Contraseña"
+            value={form.confirm}
             onChange={handleChange}
             style={inputStyle}
-            disabled={loading} // Bloqueado si carga
+            disabled={loading}
           />
           {errors.confirm && <div style={errorStyle}>{errors.confirm}</div>}
         </div>
 
         {/* Edad y Género */}
-        <div style={{ display: "flex", gap: "15px", width: "100%" }}>
-
-          {/* Edad */}
+        <div style={{ display: "flex", gap: "15px" }}>
           <div style={{ flex: 1, ...fieldGroupStyle }}>
             <input
               name="age"
-              placeholder="Edad"
               type="number"
-              onChange={(e) => {
-                if (e.target.value.length > 2) return;
-                handleChange(e);
-              }}
+              placeholder="Edad"
               value={form.age}
-              style={inputStyle}
               min="1"
               max="99"
-              disabled={loading} // Bloqueado si carga
+              onChange={handleChange}
+              style={inputStyle}
+              disabled={loading}
             />
             {errors.age && <div style={errorStyle}>{errors.age}</div>}
           </div>
@@ -205,37 +238,37 @@ export default function Register() {
               name="gender"
               value={form.gender}
               onChange={handleChange}
-              disabled={loading} // Bloqueado si carga
-              style={{
-                ...inputStyle,
-                cursor: loading ? "wait" : "pointer",
-                color: form.gender === "" ? "#757575" : "#333"
-              }}
+              disabled={loading}
+              style={inputStyle}
             >
-              <option value="" disabled hidden>Género</option>
+              <option value="" disabled hidden>
+                Género
+              </option>
               <option value="M">Masculino</option>
               <option value="F">Femenino</option>
               <option value="O">Otro</option>
             </select>
+            {errors.gender && <div style={errorStyle}>{errors.gender}</div>}
           </div>
         </div>
 
-        <button 
-            className="glass-btn" 
-            onClick={handleSubmit} 
-            disabled={loading} // Deshabilita click múltiple
-            style={{ 
-                marginTop: "15px", 
-                padding: "12px",
-                opacity: loading ? 0.7 : 1, // Feedback visual
-                cursor: loading ? "wait" : "pointer" 
-            }}
+        <button
+          className="glass-btn"
+          onClick={handleSubmit}
+          disabled={loading}
+          style={{ marginTop: "15px", opacity: loading ? 0.7 : 1 }}
         >
           {loading ? "Creando cuenta..." : "Crear Cuenta"}
         </button>
 
         <p style={{ fontSize: "0.95rem", color: "#fff", marginTop: "15px" }}>
-          ¿Ya tienes cuenta? <Link to="/login" style={{ color: "#ffd700", fontWeight: "bold", textDecoration: "none" }}>Inicia Sesión</Link>
+          ¿Ya tienes cuenta?{" "}
+          <Link
+            to="/login"
+            style={{ color: "#ffd700", fontWeight: "bold", textDecoration: "none" }}
+          >
+            Inicia Sesión
+          </Link>
         </p>
       </div>
     </div>
