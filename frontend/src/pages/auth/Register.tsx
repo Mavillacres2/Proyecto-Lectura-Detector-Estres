@@ -193,7 +193,7 @@ export default function Register() {
           <input
             type="password"
             name="password"
-            placeholder="Contraseña (6+ caracteres, número y símbolo)"
+            placeholder="Contraseña (mínimo 6 caracteres, número y símbolo)"
             value={form.password}
             onChange={handleChange}
             style={inputStyle}
