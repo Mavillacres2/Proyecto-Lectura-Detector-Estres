@@ -32,6 +32,7 @@ const ResultsPage: React.FC = () => {
     pss_score,
     pss_level,
     emotion_level,
+    nivel_final, // <--- 🆕 AHORA RECIBES ESTO
     emotion_averages,
   } = data;
 
@@ -54,27 +55,39 @@ const ResultsPage: React.FC = () => {
   // 1. Encontrar el valor máximo para normalizar
   const maxVal = Math.max(...Object.values(emotions).map(v => Number(v) || 0)) || 1;
 
-  return (
+ return (
     <div className="results-page">
-      <header className="results-header">
-        <h1>Panel de Resultados del Estudiante</h1>
-      </header>
+      {/* ... header ... */}
 
       <div className="results-grid">
-        {/* 1. Nivel de estrés facial */}
+        
+        {/* 🆕 TARJETA PRINCIPAL: RESULTADO FINAL FUSIONADO */}
+        <section className="card" style={{gridColumn: "1 / -1", background: "#e3f2fd", borderColor: "#2196f3"}}>
+           <h2 style={{textAlign: "center", color: "#0d47a1"}}>Diagnóstico Final</h2>
+           <div style={{textAlign: "center", marginTop: "10px"}}>
+              <span className={`badge badge-${(nivel_final || "medio").toLowerCase()}`} style={{fontSize: "1.5rem", padding: "10px 20px"}}>
+                 Nivel de Estrés: {nivel_final || "Calculando..."}
+              </span>
+           </div>
+           <p style={{textAlign: "center", marginTop: "15px", color: "#555"}}>
+              Resultado basado en la combinación de tu test PSS-10 (60%) y el análisis facial por IA (40%).
+           </p>
+        </section>
+
+        {/* 1. Nivel de estrés facial (IA) */}
         <section className="card">
-          <h3>Nivel de estrés facial</h3>
+          <h3>Análisis Facial (IA)</h3>
           <div className={`badge badge-${emotion_level || "desconocido"}`}>
             Estrés {emotion_level || "desconocido"}
           </div>
           <p className="card-note">
-            Calculado a partir de la frecuencia de emociones negativas.
+            Detectado por el modelo de Inteligencia Artificial basado en micro-expresiones.
           </p>
         </section>
 
         {/* 2. Nivel estimado de estrés (PSS) */}
         <section className="card">
-          <h3>Nivel estimado de estrés (PSS-10)</h3>
+          <h3>Test Psicológico (PSS-10)</h3>
           <div className={`badge badge-${pss_level || "desconocido"}`}>
             Estrés {pss_level}
           </div>
