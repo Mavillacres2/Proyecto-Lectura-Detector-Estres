@@ -638,7 +638,7 @@ export const EmotionDetector: React.FC = () => {
           </section>
 
           <section className="card card-camera">
-            <h3>Monitor de Emociones</h3>
+            <h3>Cámara funcionando</h3>
 
             {/* Cámara en tiempo real */}
             {renderCameraPanel()}
