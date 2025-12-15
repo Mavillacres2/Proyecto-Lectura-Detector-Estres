@@ -9,12 +9,6 @@ import "../styles/EmotionDetector.css";
 const MODEL_URL = "/models";
 const QUESTION_TIME = 20;
 
-const LS_AUTH_USER_ID = "user_id";
-const LS_AUTH_TOKEN = "token"; // si tú guardas token con otro nombre, cámbialo
-const LS_PSS_STATE = "pss_state_v1";
-const LS_PSS_SESSION_ID = "pss_session_id_v1";
-
-
 type Step = "intro" | "instructions" | "questionnaire" | "completed";
 
 type CameraStatus = "idle" | "requesting" | "ready" | "denied" | "error";
