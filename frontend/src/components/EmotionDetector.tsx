@@ -489,7 +489,7 @@ export const EmotionDetector: React.FC = () => {
           {renderCameraPanel()}
 
           <div className="emotion-panel">
-            <h3>Emociones detectadas (Prueba)</h3>
+            <h3>Información sobre la cámara</h3>
 
             <div
               style={{
@@ -498,10 +498,11 @@ export const EmotionDetector: React.FC = () => {
                 borderRadius: 10,
                 padding: 12,
                 marginBottom: 12,
+                color: "#black",
               }}
             >
               <div style={{ fontWeight: 700, marginBottom: 6 }}>{statusBadge}</div>
-              <div style={{ color: "#444", lineHeight: 1.4 }}>{cameraMessage}</div>
+              <div style={{ color: "#373737ff", lineHeight: 1.4 }}>{cameraMessage}</div>
 
               {(cameraStatus === "denied" || cameraStatus === "error") && (
                 <button
@@ -515,6 +516,7 @@ export const EmotionDetector: React.FC = () => {
                     background: "white",
                     width: "100%",
                     fontWeight: 600,
+                    color: "black",
                   }}
                 >
                   Reintentar / Solicitar permisos
@@ -637,8 +639,31 @@ export const EmotionDetector: React.FC = () => {
 
           <section className="card card-camera">
             <h3>Monitor de Emociones</h3>
+
+            {/* Cámara en tiempo real */}
             {renderCameraPanel()}
+
+            {/* Guía visual debajo de la cámara */}
+            <div className="camera-guide">
+              <img
+                src="/images/correct-face-example.png"
+                alt="Ejemplo de posición correcta del rostro"
+                className="camera-guide-image"
+              />
+
+              <p className="camera-guide-text">
+                📌 <strong>Referencia visual:</strong> Tu rostro debe verse de esta forma durante la grabación.
+                Mantén la cara centrada, bien iluminada y completamente visible para asegurar un
+                <strong> correcto funcionamiento del sistema de detección</strong>.
+              </p>
+
+              <p className="camera-guide-text">
+                ⚠️ <strong>Cuando el cuadro de detección aparezca alrededor de tu rostro</strong>, significa que el sistema está funcionando correctamente y está detectando tanto tu rostro como las emociones.
+                Asegúrate de mantener esta posición durante el test.
+              </p>
+            </div>
           </section>
+
         </div>
       </div>
     );

@@ -486,3 +486,30 @@
   font-size: .9rem;
   color: #6b7280;
 }
+
+/* ============================= */
+/* 📷 Guía visual debajo cámara */
+/* ============================= */
+
+.camera-guide {
+  margin-top: 15px;
+  padding: 12px;
+  background: #f5f8ff;
+  border-radius: 10px;
+  border: 1px solid #dfe6ff;
+  text-align: center;
+}
+
+.camera-guide-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.camera-guide-text {
+  font-size: 0.9rem;
+  color: #333;
+  line-height: 1.5;
+}
