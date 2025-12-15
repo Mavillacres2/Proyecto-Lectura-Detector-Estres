@@ -128,8 +128,8 @@ export const EmotionDetector: React.FC = () => {
   }, [step]);
 
   useEffect(() => {
-  stepRef.current = step;
-}, [step]);
+    stepRef.current = step;
+  }, [step]);
 
 
   // ======== Modelos ========
@@ -563,20 +563,50 @@ export const EmotionDetector: React.FC = () => {
           <section className="card card-pss">
             <h3>Sobre la Escala de Estrés Percibido (PSS-10)</h3>
 
-            <div style={{ fontSize: "1rem", lineHeight: "1.6", color: "#444", textAlign: "left" }}>
+            <div style={{ fontSize: "1rem", lineHeight: "1.7", color: "#444", textAlign: "left" }}>
               <p>
-                Encontrarás 10 preguntas sobre tus sentimientos y pensamientos durante el <strong>último mes</strong>.
+                A continuación encontrarás <strong>10 preguntas</strong> relacionadas con tus sentimientos y pensamientos
+                durante el <strong>último mes</strong>.
               </p>
 
               <ul style={{ margin: "20px 0", paddingLeft: "20px" }}>
                 <li style={{ marginBottom: "10px" }}>
-                  <strong>Objetivo:</strong> Evaluar cuán impredecible, incontrolable y sobrecargada sientes tu vida.
+                  <strong>Objetivo:</strong> Evaluar el nivel de estrés percibido, considerando cuán impredecible,
+                  incontrolable o sobrecargada ha sido tu vida.
                 </li>
                 <li style={{ marginBottom: "10px" }}>
-                  <strong>Cómo responder:</strong> Marca la alternativa que mejor represente tu estimación general.
+                  <strong>Cómo responder:</strong> Selecciona la opción que mejor represente tu experiencia general,
+                  no existe una respuesta correcta o incorrecta.
                 </li>
               </ul>
 
+              {/* 🔹 NUEVO BLOQUE WOW */}
+              <div
+                className="alert-info"
+                style={{
+                  backgroundColor: "#f3f8ff",
+                  padding: "16px",
+                  borderRadius: "10px",
+                  marginTop: "25px",
+                  borderLeft: "5px solid #3f51b5",
+                }}
+              >
+                👁️ <strong>Recomendaciones para una detección óptima:</strong>
+                <ul style={{ marginTop: "10px", paddingLeft: "20px" }}>
+                  <li>✔️ Mantén una <strong>mirada fija hacia la pantalla</strong> durante el test.</li>
+                  <li>✔️ Procura una <strong>buena iluminación frontal</strong> (evita contraluz o sombras).</li>
+                  <li>✔️ Mantén tu rostro <strong>completamente visible</strong> y centrado en la cámara.</li>
+                  <li>✔️ Evita cubrir tu rostro con manos, gafas oscuras o accesorios.</li>
+                  <li>✔️ Permanece en una <strong>posición estable</strong>, evitando movimientos bruscos.</li>
+                </ul>
+
+                <p style={{ marginTop: "10px", fontSize: "0.95rem" }}>
+                  Estas recomendaciones permiten mejorar la precisión del sistema de
+                  <strong> detección de emociones en tiempo real</strong>.
+                </p>
+              </div>
+
+              {/* 🔹 BLOQUE DE ATENCIÓN */}
               <div
                 className="alert-info"
                 style={{
@@ -587,15 +617,19 @@ export const EmotionDetector: React.FC = () => {
                   borderLeft: "5px solid #2196f3",
                 }}
               >
-                ℹ️ <strong>Atención:</strong> Cada pregunta tendrá un <strong>temporizador de 20 segundos</strong> antes de
-                poder avanzar.
+                ⏱️ <strong>Atención:</strong> Cada pregunta contará con un
+                <strong> temporizador mínimo de 20 segundos</strong> antes de poder avanzar.
                 <br />
-                <strong>Tus datos faciales comenzarán a grabarse al iniciar el test.</strong>
+                🎥 <strong>La captura de datos faciales comenzará automáticamente al iniciar el test.</strong>
               </div>
             </div>
 
             <div style={{ marginTop: "30px" }}>
-              <button className="btn-finish" onClick={() => setStep("questionnaire")} style={{ width: "100%" }}>
+              <button
+                className="btn-finish"
+                onClick={() => setStep("questionnaire")}
+                style={{ width: "100%" }}
+              >
                 Entendido, Iniciar Test
               </button>
             </div>
@@ -609,6 +643,7 @@ export const EmotionDetector: React.FC = () => {
       </div>
     );
   }
+
 
   // 3) CUESTIONARIO
   if (step === "questionnaire") {
@@ -706,14 +741,26 @@ export const EmotionDetector: React.FC = () => {
 
   // 4) COMPLETADO
   return (
-    <div className="completed-page">
-      <div className="completed-card">
-        <h2>¡Cuestionario completado!</h2>
-        <p>Gracias por completar la evaluación. Tus respuestas han sido registradas y procesadas.</p>
-        <button className="btn-view-results" onClick={handleViewResults}>
-          Ver Resultados
-        </button>
+    <div className="completedWrap">
+      <div className="completedCard">
+        <div className="completedIcon" aria-hidden="true">✅</div>
+
+        <h2 className="completedTitle">¡Cuestionario completado!</h2>
+        <p className="completedText">
+          Gracias por completar la evaluación. Tus respuestas han sido registradas y procesadas.
+        </p>
+
+        <div className="completedActions">
+          <button className="completedBtn" onClick={handleViewResults}>
+            Ver Resultados
+          </button>
+        </div>
+
+        <p className="completedHint">
+          Tip: si la cámara estaba oscura o con poca luz, los resultados pueden tener menor precisión.
+        </p>
       </div>
     </div>
   );
+
 };
