@@ -57,7 +57,7 @@ export const EmotionDetector: React.FC = () => {
 
   const [step, setStep] = useState<Step>("intro");
   const [sessionId] = useState(() => crypto.randomUUID());
-  
+
   const [userId, setUserId] = useState<number | null>(null);
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -417,6 +417,24 @@ export const EmotionDetector: React.FC = () => {
     navigate("/results", { state: resultsData });
   };
 
+  const handleLogout = () => {
+    // 🔐 Limpiar sesión
+    localStorage.removeItem("user_id");
+    localStorage.removeItem("token"); // si no usas token, no pasa nada
+    localStorage.removeItem("pss_state_v1");
+    localStorage.removeItem("pss_session_id_v1");
+
+    // 🎥 Apagar cámara
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+
+    // 🔄 Navegar a login
+    navigate("/login");
+  };
+
+
   // ======== UI ========
   const renderCameraPanel = () => (
     <div className="video-card">
@@ -442,6 +460,31 @@ export const EmotionDetector: React.FC = () => {
     </div>
   );
 
+  const TopBar = () => (
+    <div
+      style={{
+        position: "fixed",
+        top: 15,
+        right: 20,
+        zIndex: 1000,
+      }}
+    >
+      <button
+        onClick={handleLogout}
+        style={{
+          padding: "8px 14px",
+          borderRadius: 8,
+          border: "1px solid #ccc",
+          background: "#ffffff",
+          cursor: "pointer",
+          fontWeight: 600,
+          boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+        }}
+      >
+        Cerrar sesión
+      </button>
+    </div>
+  );
   // ======== RENDER POR PASOS ========
 
   // 1) INTRO
@@ -461,6 +504,7 @@ export const EmotionDetector: React.FC = () => {
 
     return (
       <div className="emotion-page">
+         <TopBar />
         <section className="emotion-header">
           <p className="emotion-description">
             Este sistema te permite evaluar tu nivel de estrés mediante un breve cuestionario (PSS-10) y el análisis de tu
@@ -558,6 +602,7 @@ export const EmotionDetector: React.FC = () => {
   if (step === "instructions") {
     return (
       <div className="questionnaire-page">
+         <TopBar />
         <header className="questionnaire-header">
           <h1>Instrucciones del Test</h1>
         </header>
@@ -682,6 +727,7 @@ export const EmotionDetector: React.FC = () => {
 
     return (
       <div className="questionnaire-page">
+         <TopBar />
         <header className="questionnaire-header">
           <h1>Evaluación de Estrés</h1>
         </header>
@@ -768,6 +814,7 @@ export const EmotionDetector: React.FC = () => {
   // 4) COMPLETADO
   return (
     <div className="completedWrap">
+       <TopBar />
       <div className="completedCard">
         <div className="completedIcon" aria-hidden="true">✅</div>
 
