@@ -12,3 +12,4 @@ class User(Base):
     # edad y genero
     age = Column(Integer, nullable=True)
     gender = Column(String(10), nullable=True)
+    role = Column(String(20), default="student")

@@ -4,6 +4,8 @@ import Login from "././pages/auth/Login";
 import Register from "././pages/auth/Register";
 import { EmotionDetector } from "./components/EmotionDetector";
 import ResultsPage from "./pages/ResultsPage";
+import { AdminDashboard } from "././pages/admin/AdminDashboard";
+
 
 function App() {
   return (
@@ -21,6 +23,8 @@ function App() {
         <Route path="/detector" element={<EmotionDetector />} />
 
         <Route path="/results" element={<ResultsPage />} />
+        // ...
+        <Route path="/admin" element={<AdminDashboard />} />
 
       </Routes>
     </BrowserRouter>

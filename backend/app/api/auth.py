@@ -69,4 +69,5 @@ async def login(data: LoginPayload, db: Session = Depends(get_db)):
         "user_id": user.id,
         "full_name": user.full_name,
         "token": token,
+        "role": user.role,
     }
