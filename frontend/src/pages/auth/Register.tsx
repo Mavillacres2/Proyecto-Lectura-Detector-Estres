@@ -233,7 +233,7 @@ export default function Register() {
             <input
               name="birth_year"
               type="number"
-              placeholder="Año Nacimiento"
+              placeholder="Año Nacimiento (ej: 2000)"
               value={form.birth_year}
               min="1950"
               max={new Date().getFullYear()}
