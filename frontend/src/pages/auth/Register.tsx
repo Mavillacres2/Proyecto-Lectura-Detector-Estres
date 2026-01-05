@@ -5,15 +5,15 @@ import { useNavigate, Link } from "react-router-dom";
 
 export default function Register() {
   const nav = useNavigate();
-
   const [loading, setLoading] = useState(false);
 
+  // 1. Cambiamos 'age' por 'birth_year'
   const [form, setForm] = useState({
     full_name: "",
     email: "",
     password: "",
     confirm: "",
-    age: "",
+    birth_year: "", // Nuevo campo
     gender: "",
   });
 
@@ -67,13 +67,19 @@ export default function Register() {
       newErrors.confirm = "Las contraseñas no coinciden.";
     }
 
-    // --- EDAD ---
-    if (!form.age) {
-      newErrors.age = "La edad es obligatoria.";
-    } else if (Number(form.age) < 18) {
-      newErrors.age = "Debes tener al menos 18 años.";
-    } else if (Number(form.age) > 45) {
-      newErrors.age = "Edad no válida para este sistema.";
+    // --- AÑO DE NACIMIENTO (Validación de Edad implícita) ---
+    const currentYear = new Date().getFullYear();
+    const birthYear = Number(form.birth_year);
+    const calculatedAge = currentYear - birthYear;
+
+    if (!form.birth_year) {
+      newErrors.birth_year = "El año de nacimiento es obligatorio.";
+    } else if (isNaN(birthYear) || form.birth_year.length !== 4) {
+      newErrors.birth_year = "Ingresa un año válido (Ej: 2000).";
+    } else if (calculatedAge < 18) {
+      newErrors.birth_year = "Debes tener al menos 18 años.";
+    } else if (calculatedAge > 45) {
+      newErrors.birth_year = "Edad no válida para este sistema (Máx 45 años).";
     }
 
     // --- GÉNERO ---
@@ -93,12 +99,16 @@ export default function Register() {
 
     setLoading(true);
 
+    // Calculamos la edad exacta antes de enviar
+    const currentYear = new Date().getFullYear();
+    const calculatedAge = currentYear - Number(form.birth_year);
+
     try {
       await registerUser({
         full_name: form.full_name.trim(),
         email: form.email,
         password: form.password,
-        age: Number(form.age),
+        age: calculatedAge, // Enviamos 'age' al backend como siempre
         gender: form.gender,
       });
 
@@ -216,21 +226,22 @@ export default function Register() {
           {errors.confirm && <div style={errorStyle}>{errors.confirm}</div>}
         </div>
 
-        {/* Edad y Género */}
+        {/* Año de Nacimiento y Género */}
         <div style={{ display: "flex", gap: "15px" }}>
+          {/* CAMBIO: Input de Año de Nacimiento */}
           <div style={{ flex: 1, ...fieldGroupStyle }}>
             <input
-              name="age"
+              name="birth_year"
               type="number"
-              placeholder="Edad"
-              value={form.age}
-              min="1"
-              max="99"
+              placeholder="Año Nacimiento"
+              value={form.birth_year}
+              min="1950"
+              max={new Date().getFullYear()}
               onChange={handleChange}
               style={inputStyle}
               disabled={loading}
             />
-            {errors.age && <div style={errorStyle}>{errors.age}</div>}
+            {errors.birth_year && <div style={errorStyle}>{errors.birth_year}</div>}
           </div>
 
           <div style={{ flex: 1, ...fieldGroupStyle }}>
