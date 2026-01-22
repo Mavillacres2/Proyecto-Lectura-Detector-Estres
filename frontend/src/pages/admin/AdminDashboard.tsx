@@ -62,7 +62,7 @@ export const AdminDashboard = () => {
 
             {/* Header */}
             <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px", background: "white", padding: "15px 25px", borderRadius: "10px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)" }}>
-                <h1 style={{ margin: 0, color: "#2c3e50", fontSize: "1.5rem" }}>🛡️ Panel de Administrador</h1>
+                <h1 style={{ margin: 0, color: "#2c3e50", fontSize: "1.5rem" }}>🛡️ Panel de Docente</h1>
                 <button onClick={handleLogout} style={{ display: "flex", alignItems: "center", gap: "8px", border: "none", background: "transparent", color: "#e74c3c", cursor: "pointer", fontWeight: "bold" }}>
                     <LogOut size={18} /> Salir
                 </button>
@@ -127,7 +127,7 @@ export const AdminDashboard = () => {
             {/* VISTA DETALLE ESTUDIANTE */}
             {view === "detail" && (
                 <div>
-                    <button onClick={() => setView("global")} style={{ marginBottom: "20px", cursor: "pointer", border: "none", background: "#e0e0e0", padding: "8px 15px", borderRadius: "5px" }}>
+                    <button onClick={() => setView("global")} style={{ marginBottom: "20px", cursor: "pointer", border: "none", background: "#ffffff", padding: "8px 15px", borderRadius: "5px", color: "#114f81" }}>
                         ← Volver al Global
                     </button>
 
