@@ -3,7 +3,7 @@ import { LogOut, ChevronRight, Users, Activity } from "lucide-react";
 import axios from "axios";
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    ComposedChart, Line, Scatter
+    ComposedChart, Line
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 
