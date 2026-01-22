@@ -20,7 +20,7 @@ export const AdminDashboard = () => {
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [studentHistory, setStudentHistory] = useState<any[]>([]);
 
-    // 1. Cargar datos globales al iniciar
+    // Cargar datos al iniciar
     useEffect(() => {
         fetchGlobalData();
         fetchStudents();
@@ -74,17 +74,18 @@ export const AdminDashboard = () => {
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <Activity size={20} /> Distribución Global de Estrés
                         </h3>
-                        <p style={{ color: "#666", fontSize: "0.9rem" }}>Total de evaluaciones realizadas: <strong>{globalStats?.total_evaluations || 0}</strong></p>
+                        {/* Texto corregido para indicar que son Alumnos Únicos */}
+                        <p style={{ color: "#666", fontSize: "0.9rem" }}>Total de alumnos evaluados: <strong>{globalStats?.total_evaluations || 0}</strong></p>
 
                         <div style={{ height: "300px", marginTop: "20px" }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={globalStats?.distribution || []} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="name" />
-                                    {/* allowDecimals={false} fuerza a que solo muestre enteros (1, 2, 3...) no 1.5 alumnos */}
+                                    {/* allowDecimals={false} asegura que no salgan números como "1.5 alumnos" */}
                                     <YAxis allowDecimals={false} />
                                     <Tooltip cursor={{ fill: 'transparent' }} />
-                                    <Bar dataKey="value" name="Cantidad de Alumnos" radius={[5, 5, 0, 0]} barSize={50} />
+                                    <Bar dataKey="value" name="Cantidad de Alumnos" radius={[5, 5, 0, 0]} barSize={60} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -95,7 +96,7 @@ export const AdminDashboard = () => {
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <Users size={20} /> Lista de Estudiantes
                         </h3>
-                        <p style={{ color: "#666", fontSize: "0.9rem" }}>Selecciona uno para ver su evolución.</p>
+                        <p style={{ color: "#666", fontSize: "0.9rem" }}>Selecciona un estudiante para ver su historial.</p>
 
                         <div style={{ marginTop: "15px", maxHeight: "400px", overflowY: "auto" }}>
                             {students.map((s) => (
@@ -136,28 +137,42 @@ export const AdminDashboard = () => {
                             <p>Este estudiante aún no ha realizado pruebas.</p>
                         ) : (
                             <div style={{ height: "400px", marginTop: "30px" }}>
-                                {/* CAMBIO CLAVE: Usamos ComposedChart para mezclar barras y líneas */}
+                                {/* SOLUCIÓN VISUAL: Usamos ComposedChart para que se vea bien con 1 solo dato */}
                                 <ResponsiveContainer width="100%" height="100%">
                                     <ComposedChart data={studentHistory} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                         <CartesianGrid stroke="#f5f5f5" />
-                                        <XAxis dataKey="date" scale="point" padding={{ left: 30, right: 30 }} />
+                                        <XAxis dataKey="date" scale="point" padding={{ left: 50, right: 50 }} />
                                         <YAxis label={{ value: 'Nivel / Puntaje', angle: -90, position: 'insideLeft' }} domain={[0, 'auto']} />
                                         <Tooltip />
                                         <Legend />
 
-                                        {/* Barra de fondo sutil para dar contexto si solo hay 1 dato */}
-                                        <Bar dataKey="pss_score" name="Puntaje PSS (Barra)" barSize={20} fill="#8884d8" opacity={0.3} />
+                                        {/* 1. Dibujamos una barra tenue de fondo para que se note el valor si es único */}
+                                        <Bar dataKey="pss_score" name="Nivel PSS (Referencia)" barSize={20} fill="#8884d8" opacity={0.2} />
 
-                                        {/* Línea principal PSS */}
-                                        <Line type="monotone" dataKey="pss_score" stroke="#8884d8" name="Puntaje Test (Línea)" strokeWidth={3} dot={{ r: 6 }} activeDot={{ r: 8 }} />
-
-                                        {/* Línea principal Negatividad Facial */}
-                                        <Line type="monotone" dataKey="negative_ratio" stroke="#82ca9d" name="% Negatividad Facial" strokeWidth={3} dot={{ r: 6 }} activeDot={{ r: 8 }} />
+                                        {/* 2. Dibujamos la línea con Puntos Grandes (activeDot) para que se vean siempre */}
+                                        <Line 
+                                            type="monotone" 
+                                            dataKey="pss_score" 
+                                            stroke="#8884d8" 
+                                            name="Puntaje Test (PSS)" 
+                                            strokeWidth={3} 
+                                            dot={{ r: 6, fill: "#8884d8" }} 
+                                            activeDot={{ r: 8 }} 
+                                        />
+                                        <Line 
+                                            type="monotone" 
+                                            dataKey="negative_ratio" 
+                                            stroke="#82ca9d" 
+                                            name="% Negatividad Facial" 
+                                            strokeWidth={3} 
+                                            dot={{ r: 6, fill: "#82ca9d" }} 
+                                            activeDot={{ r: 8 }} 
+                                        />
                                     </ComposedChart>
                                 </ResponsiveContainer>
-                                <p style={{ textAlign: "center", fontSize: "0.9rem", color: "#555", marginTop: "15px", background: "#f0f8ff", padding: "10px", borderRadius: "5px" }}>
-                                    ℹ️ <strong>Nota:</strong> Los puntos marcados en la gráfica representan cada evaluación realizada.
-                                    Si solo ves un punto, significa que el estudiante solo ha realizado una prueba hasta la fecha.
+                                
+                                <p style={{ textAlign: "center", fontSize: "0.9rem", color: "#555", marginTop: "15px", background: "#eef", padding: "10px", borderRadius: "5px" }}>
+                                    ℹ️ <strong>Ayuda visual:</strong> Los puntos representan cada sesión. Si solo ves un punto, significa que el estudiante solo ha realizado una prueba hasta ahora.
                                 </p>
                             </div>
                         )}

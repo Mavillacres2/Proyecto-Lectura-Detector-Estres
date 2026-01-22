@@ -13,23 +13,50 @@ def get_db():
     try: yield db
     finally: db.close()
 
-# 1. Dashboard Global: Conteo general
+# 1. Dashboard Global: Conteo INTELIGENTE (Solo último estado por alumno)
 @router.get("/global-stats")
 def get_global_stats():
     collection = mongo_db["stress_evaluations"]
     
-    # Contar cuántos hay de cada nivel
-    total = collection.count_documents({})
-    bajos = collection.count_documents({"final_stress_level": "Bajo"})
-    medios = collection.count_documents({"final_stress_level": "Medio"})
-    altos = collection.count_documents({"final_stress_level": "Alto"})
+    # Pipeline de Agregación de MongoDB
+    pipeline = [
+        # 1. Ordenar por fecha descendente (el más reciente primero)
+        {"$sort": {"created_at": -1}},
+        
+        # 2. Agrupar por ID de usuario y tomar solo el PRIMER resultado (el más reciente)
+        {"$group": {
+            "_id": "$user_id",
+            "latest_level": {"$first": "$final_stress_level"}
+        }},
+        
+        # 3. Contar cuántos hay de cada nivel en este grupo filtrado
+        {"$group": {
+            "_id": "$latest_level",
+            "count": {"$sum": 1}
+        }}
+    ]
+    
+    # Ejecutar la consulta
+    results = list(collection.aggregate(pipeline))
+    
+    # Inicializar contadores en 0 por si alguna categoría no tiene nadie
+    counts = {"Bajo": 0, "Medio": 0, "Alto": 0}
+    
+    # Mapear los resultados de Mongo a nuestro diccionario
+    for r in results:
+        # r["_id"] es la categoría (ej: "Alto")
+        if r["_id"] in counts:
+            counts[r["_id"]] = r["count"]
+            
+    # Calcular el total real de alumnos únicos
+    total_unique_students = sum(counts.values())
     
     return {
-        "total_evaluations": total,
+        "total_evaluations": total_unique_students,
         "distribution": [
-            {"name": "Bajo", "value": bajos, "fill": "#4caf50"},
-            {"name": "Medio", "value": medios, "fill": "#ff9800"},
-            {"name": "Alto", "value": altos, "fill": "#f44336"},
+            {"name": "Bajo", "value": counts["Bajo"], "fill": "#4caf50"},
+            {"name": "Medio", "value": counts["Medio"], "fill": "#ff9800"},
+            {"name": "Alto", "value": counts["Alto"], "fill": "#f44336"},
         ]
     }
 
