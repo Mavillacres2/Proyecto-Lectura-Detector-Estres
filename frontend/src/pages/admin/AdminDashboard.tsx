@@ -127,7 +127,7 @@ export const AdminDashboard = () => {
             {/* VISTA DETALLE ESTUDIANTE */}
             {view === "detail" && (
                 <div>
-                    <button onClick={() => setView("global")} style={{ marginBottom: "20px", cursor: "pointer", border: "none", background: "#ffffff", padding: "8px 15px", borderRadius: "5px", color: "#114f81" }}>
+                    <button onClick={() => setView("global")} style={{ marginBottom: "20px", cursor: "pointer", border: "none", background: "#217aff", padding: "8px 15px", borderRadius: "5px", color: "#114f81" }}>
                         ← Volver al Global
                     </button>
 
