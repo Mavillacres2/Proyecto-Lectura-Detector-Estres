@@ -1,12 +1,9 @@
-
 import { useEffect, useState } from "react";
-
-
 import { LogOut, ChevronRight, Users, Activity } from "lucide-react";
-
 import axios from "axios";
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    ComposedChart, Line, Scatter
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 
@@ -81,12 +78,13 @@ export const AdminDashboard = () => {
 
                         <div style={{ height: "300px", marginTop: "20px" }}>
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={globalStats?.distribution || []}>
+                                <BarChart data={globalStats?.distribution || []} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="name" />
-                                    <YAxis />
-                                    <Tooltip />
-                                    <Bar dataKey="value" name="Cantidad de Alumnos" radius={[5, 5, 0, 0]} />
+                                    {/* allowDecimals={false} fuerza a que solo muestre enteros (1, 2, 3...) no 1.5 alumnos */}
+                                    <YAxis allowDecimals={false} />
+                                    <Tooltip cursor={{ fill: 'transparent' }} />
+                                    <Bar dataKey="value" name="Cantidad de Alumnos" radius={[5, 5, 0, 0]} barSize={50} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -127,32 +125,39 @@ export const AdminDashboard = () => {
             {/* VISTA DETALLE ESTUDIANTE */}
             {view === "detail" && (
                 <div>
-                    <button onClick={() => setView("global")} style={{ marginBottom: "20px", cursor: "pointer", border: "none", background: "#217aff", padding: "8px 15px", borderRadius: "5px", color: "#114f81" }}>
+                    <button onClick={() => setView("global")} style={{ marginBottom: "20px", cursor: "pointer", border: "none", background: "#0947a4", padding: "8px 15px", borderRadius: "5px", color: "#ffffff" }}>
                         ← Volver al Global
                     </button>
 
-                    <div style={{ background: "white", padding: "25px", borderRadius: "10px", boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
+                    <div style={{ background: "white", padding: "25px", borderRadius: "10px", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", color: "#0b1117" }}>
                         <h2>📈 Evolución de: <span style={{ color: "#2196f3" }}>{selectedStudent?.name}</span></h2>
 
                         {studentHistory.length === 0 ? (
                             <p>Este estudiante aún no ha realizado pruebas.</p>
                         ) : (
                             <div style={{ height: "400px", marginTop: "30px" }}>
+                                {/* CAMBIO CLAVE: Usamos ComposedChart para mezclar barras y líneas */}
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={studentHistory}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="date" />
-                                        <YAxis label={{ value: 'Puntaje PSS', angle: -90, position: 'insideLeft' }} />
+                                    <ComposedChart data={studentHistory} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                                        <CartesianGrid stroke="#f5f5f5" />
+                                        <XAxis dataKey="date" scale="point" padding={{ left: 30, right: 30 }} />
+                                        <YAxis label={{ value: 'Nivel / Puntaje', angle: -90, position: 'insideLeft' }} domain={[0, 'auto']} />
                                         <Tooltip />
                                         <Legend />
-                                        {/* Línea de PSS */}
-                                        <Line type="monotone" dataKey="pss_score" stroke="#8884d8" name="Puntaje Test (PSS)" strokeWidth={3} />
-                                        {/* Línea de % Negativo (Cámara) */}
-                                        <Line type="monotone" dataKey="negative_ratio" stroke="#82ca9d" name="% Negatividad Facial" strokeWidth={3} />
-                                    </LineChart>
+
+                                        {/* Barra de fondo sutil para dar contexto si solo hay 1 dato */}
+                                        <Bar dataKey="pss_score" name="Puntaje PSS (Barra)" barSize={20} fill="#8884d8" opacity={0.3} />
+
+                                        {/* Línea principal PSS */}
+                                        <Line type="monotone" dataKey="pss_score" stroke="#8884d8" name="Puntaje Test (Línea)" strokeWidth={3} dot={{ r: 6 }} activeDot={{ r: 8 }} />
+
+                                        {/* Línea principal Negatividad Facial */}
+                                        <Line type="monotone" dataKey="negative_ratio" stroke="#82ca9d" name="% Negatividad Facial" strokeWidth={3} dot={{ r: 6 }} activeDot={{ r: 8 }} />
+                                    </ComposedChart>
                                 </ResponsiveContainer>
-                                <p style={{ textAlign: "center", fontSize: "0.8rem", color: "#666", marginTop: "10px" }}>
-                                    Comparativa del puntaje del cuestionario vs. el porcentaje de emociones negativas detectadas por la cámara.
+                                <p style={{ textAlign: "center", fontSize: "0.9rem", color: "#555", marginTop: "15px", background: "#f0f8ff", padding: "10px", borderRadius: "5px" }}>
+                                    ℹ️ <strong>Nota:</strong> Los puntos marcados en la gráfica representan cada evaluación realizada.
+                                    Si solo ves un punto, significa que el estudiante solo ha realizado una prueba hasta la fecha.
                                 </p>
                             </div>
                         )}
