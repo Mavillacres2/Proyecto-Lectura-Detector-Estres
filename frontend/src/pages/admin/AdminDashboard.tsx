@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 // Configura tu URL base
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
-// Colores profesionales para el gráfico
+// Colores del semáforo para el estrés
 const COLORS = {
     "Bajo": "#4caf50",  // Verde
     "Medio": "#ff9800", // Naranja
@@ -35,7 +35,7 @@ export const AdminDashboard = () => {
     const fetchGlobalData = async () => {
         try {
             const res = await axios.get(`${API_URL}/admin/global-stats`);
-            // Aseguramos que los colores vengan bien desde el front si el back no los manda
+            // Asignamos colores manualmente para asegurar que el gráfico se vea bien
             const dataWithColors = {
                 ...res.data,
                 distribution: res.data.distribution.map((d: any) => ({
@@ -68,19 +68,18 @@ export const AdminDashboard = () => {
         navigate("/login");
     };
 
-    // Renderizado personalizado para el Tooltip del PieChart
+    // Tooltip personalizado para la Dona
     const CustomTooltip = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
-            const percent = globalStats?.total_evaluations 
-                ? ((data.value / globalStats.total_evaluations) * 100).toFixed(1) 
-                : 0;
+            const total = globalStats?.total_evaluations || 1;
+            const percent = ((data.value / total) * 100).toFixed(1);
             
             return (
-                <div style={{ background: "white", padding: "10px", border: "1px solid #ccc", borderRadius: "5px" }}>
-                    <p style={{ margin: 0, fontWeight: "bold", color: data.fill }}>{data.name}</p>
-                    <p style={{ margin: 0 }}>Alumnos: {data.value}</p>
-                    <p style={{ margin: 0 }}>Porcentaje: {percent}%</p>
+                <div style={{ background: "white", padding: "12px", border: "1px solid #eee", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+                    <p style={{ margin: 0, fontWeight: "bold", color: data.fill, fontSize: "1rem" }}>{data.name}</p>
+                    <p style={{ margin: "5px 0 0 0", color: "#333" }}>Alumnos: <strong>{data.value}</strong></p>
+                    <p style={{ margin: 0, color: "#666", fontSize: "0.9rem" }}>Representan el {percent}%</p>
                 </div>
             );
         }
@@ -107,32 +106,26 @@ export const AdminDashboard = () => {
             {view === "global" && (
                 <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: "25px" }}>
 
-                    {/* Tarjeta 1: Gráfico de Distribución (DONA) */}
+                    {/* Tarjeta 1: Gráfico de DONA (Distribución) */}
                     <div style={{ background: "white", padding: "25px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column" }}>
                         <div style={{ display: 'flex', justifyContent: "space-between", alignItems: "start" }}>
                             <div>
                                 <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: "0 0 5px 0", color: "#334155" }}>
                                     <PieIcon size={20} className="text-gray-500" /> Distribución de Estrés
                                 </h3>
-                                <p style={{ color: "#64748b", fontSize: "0.9rem", margin: 0 }}>Panorama general del aula</p>
-                            </div>
-                            <div style={{ textAlign: "right" }}>
-                                <span style={{ fontSize: "2rem", fontWeight: "bold", color: "#0f172a" }}>
-                                    {globalStats?.total_evaluations || 0}
-                                </span>
-                                <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: "600" }}>ALUMNOS TOTALES</div>
+                                <p style={{ color: "#64748b", fontSize: "0.9rem", margin: 0 }}>Panorama general de la clase</p>
                             </div>
                         </div>
 
-                        <div style={{ flex: 1, minHeight: "300px", marginTop: "20px", position: "relative" }}>
+                        <div style={{ flex: 1, minHeight: "350px", marginTop: "20px", position: "relative" }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
                                         data={globalStats?.distribution || []}
                                         cx="50%"
                                         cy="50%"
-                                        innerRadius={80} // Esto lo hace "Dona"
-                                        outerRadius={110}
+                                        innerRadius={90}  // Radio interno (hace el hueco de la dona)
+                                        outerRadius={130} // Radio externo
                                         paddingAngle={5}
                                         dataKey="value"
                                     >
@@ -145,63 +138,72 @@ export const AdminDashboard = () => {
                                         verticalAlign="middle" 
                                         align="right" 
                                         layout="vertical"
+                                        iconSize={15}
                                         formatter={(value, entry: any) => {
                                             const val = entry.payload.value;
                                             const total = globalStats?.total_evaluations || 1;
+                                            // Calculamos porcentaje para la leyenda
                                             const percent = ((val / total) * 100).toFixed(0);
-                                            return <span style={{ color: "#334155", fontWeight: "500", marginLeft: "10px" }}>{value} ({percent}%)</span>;
+                                            return <span style={{ color: "#334155", fontWeight: "500", marginLeft: "10px", fontSize: "1rem" }}>{value} ({percent}%)</span>;
                                         }}
                                     />
                                 </PieChart>
                             </ResponsiveContainer>
-                            {/* Texto central en la dona */}
+                            
+                            {/* Texto Central Gigante */}
                             <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", pointerEvents: "none" }}>
-                                <div style={{ fontSize: "0.9rem", color: "#94a3b8" }}>Estado</div>
-                                <div style={{ fontWeight: "bold", color: "#334155" }}>General</div>
+                                <div style={{ fontSize: "3rem", fontWeight: "bold", color: "#0f172a", lineHeight: "1" }}>
+                                    {globalStats?.total_evaluations || 0}
+                                </div>
+                                <div style={{ fontSize: "0.9rem", color: "#94a3b8", fontWeight: "600", marginTop: "5px" }}>ESTUDIANTES</div>
                             </div>
                         </div>
                     </div>
 
                     {/* Tarjeta 2: Lista de Estudiantes */}
-                    <div style={{ background: "white", padding: "25px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column", maxHeight: "500px" }}>
+                    <div style={{ background: "white", padding: "25px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column", maxHeight: "550px" }}>
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: "0 0 20px 0", color: "#334155" }}>
                             <Users size={20} /> Lista de Estudiantes
                         </h3>
                         
                         <div style={{ overflowY: "auto", paddingRight: "5px", flex: 1 }}>
-                            {students.map((s) => (
-                                <div
-                                    key={s.id}
-                                    onClick={() => handleStudentClick(s)}
-                                    style={{
-                                        padding: "16px", marginBottom: "10px", borderRadius: "8px",
-                                        border: "1px solid #f1f5f9", cursor: "pointer",
-                                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                                        transition: "all 0.2s ease"
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.background = "#f8fafc";
-                                        e.currentTarget.style.borderColor = "#cbd5e1";
-                                        e.currentTarget.style.transform = "translateX(5px)";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = "transparent";
-                                        e.currentTarget.style.borderColor = "#f1f5f9";
-                                        e.currentTarget.style.transform = "translateX(0)";
-                                    }}
-                                >
-                                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                                        <div style={{ width: "35px", height: "35px", borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", color: "#64748b" }}>
-                                            {s.name.charAt(0).toUpperCase()}
+                            {students.length === 0 ? (
+                                <p style={{color: "#999", textAlign: "center", marginTop: "20px"}}>No hay estudiantes registrados.</p>
+                            ) : (
+                                students.map((s) => (
+                                    <div
+                                        key={s.id}
+                                        onClick={() => handleStudentClick(s)}
+                                        style={{
+                                            padding: "16px", marginBottom: "10px", borderRadius: "8px",
+                                            border: "1px solid #f1f5f9", cursor: "pointer",
+                                            display: "flex", justifyContent: "space-between", alignItems: "center",
+                                            transition: "all 0.2s ease"
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.background = "#f8fafc";
+                                            e.currentTarget.style.borderColor = "#cbd5e1";
+                                            e.currentTarget.style.transform = "translateX(5px)";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.background = "transparent";
+                                            e.currentTarget.style.borderColor = "#f1f5f9";
+                                            e.currentTarget.style.transform = "translateX(0)";
+                                        }}
+                                    >
+                                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                            <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", color: "#64748b", fontSize: "1.1rem" }}>
+                                                {s.name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div style={{ fontWeight: "600", color: "#334155" }}>{s.name}</div>
+                                                <div style={{ fontSize: "0.85rem", color: "#94a3b8" }}>{s.email}</div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <div style={{ fontWeight: "600", color: "#334155" }}>{s.name}</div>
-                                            <div style={{ fontSize: "0.8rem", color: "#94a3b8" }}>{s.email}</div>
-                                        </div>
+                                        <ChevronRight size={20} color="#cbd5e1" />
                                     </div>
-                                    <ChevronRight size={18} color="#cbd5e1" />
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
@@ -220,7 +222,6 @@ export const AdminDashboard = () => {
                     <div style={{ background: "white", padding: "30px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
                         <div style={{ marginBottom: "30px", borderBottom: "1px solid #f1f5f9", paddingBottom: "20px" }}>
                             <h2 style={{ margin: 0, color: "#1e293b" }}>Evolución de: <span style={{ color: "#2563eb" }}>{selectedStudent?.name}</span></h2>
-                            <p style={{ margin: "5px 0 0 0", color: "#64748b" }}>Historial completo de evaluaciones psicométricas y biométricas.</p>
                         </div>
 
                         {studentHistory.length === 0 ? (
@@ -244,7 +245,7 @@ export const AdminDashboard = () => {
                                             domain={[0, 'auto']} 
                                             tick={{ fill: '#64748b' }}
                                             axisLine={false}
-                                            label={{ value: 'Nivel de Estrés / Puntaje', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8' } }} 
+                                            label={{ value: 'Nivel / Puntaje', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8' } }} 
                                         />
                                         <Tooltip 
                                             contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
@@ -252,7 +253,7 @@ export const AdminDashboard = () => {
                                         <Legend wrapperStyle={{ paddingTop: "20px" }} />
 
                                         {/* Barra de fondo sutil */}
-                                        <Bar dataKey="pss_score" name="Nivel PSS (Referencia)" barSize={40} fill="#e2e8f0" radius={[4, 4, 0, 0]} />
+                                        <Bar dataKey="pss_score" name="Nivel PSS (Barra)" barSize={40} fill="#e2e8f0" radius={[4, 4, 0, 0]} />
 
                                         {/* Líneas principales */}
                                         <Line 
@@ -282,10 +283,8 @@ export const AdminDashboard = () => {
                             <div style={{ marginTop: "20px", background: "#f8fafc", padding: "15px", borderRadius: "8px", display: "flex", gap: "10px", alignItems: "center", color: "#475569", fontSize: "0.9rem" }}>
                                 <span>💡</span>
                                 <div>
-                                    <strong>¿Cómo leer esto?</strong> Las barras grises muestran la magnitud general. 
-                                    La <span style={{ color: "#6366f1", fontWeight: "bold" }}>Línea Morada</span> es lo que el estudiante respondió en el test. 
-                                    La <span style={{ color: "#10b981", fontWeight: "bold" }}>Línea Verde</span> es lo que su rostro expresó. 
-                                    Grandes diferencias entre ambas pueden indicar estrés oculto.
+                                    <strong>Nota Visual:</strong> Si solo ves un punto, es porque el estudiante solo ha hecho una prueba.
+                                    La línea verde indica qué tan negativa fue su expresión facial durante el test.
                                 </div>
                             </div>
                         )}
