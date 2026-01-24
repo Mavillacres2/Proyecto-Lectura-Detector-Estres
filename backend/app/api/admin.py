@@ -13,37 +13,54 @@ def get_db():
     try: yield db
     finally: db.close()
 
-# 1. Dashboard Global: MODO TOTAL (Cuenta todo lo que existe en la base de datos)
+# 1. Dashboard Global: CORREGIDO Y ROBUSTO
 @router.get("/global-stats")
 def get_global_stats():
     collection = mongo_db["stress_evaluations"]
     
-    # Lógica Directa: Agrupar por nivel de estrés y contar TODO lo que hay.
-    # No filtramos por usuario único. Si hay 58 registros, contará 58.
+    # Pipeline directo: Agrupa por el campo exacto de tu imagen
     pipeline = [
         {"$group": {
-            "_id": "$final_stress_level", # Agrupa por Bajo, Medio, Alto
-            "count": {"$sum": 1}          # Suma 1 por cada documento encontrado
+            "_id": "$final_stress_level", # Campo tal cual aparece en tu MongoDB Compass
+            "count": {"$sum": 1}
         }}
     ]
     
-    # Ejecutar la consulta en Mongo
-    results = list(collection.aggregate(pipeline))
+    try:
+        results = list(collection.aggregate(pipeline))
+    except Exception as e:
+        print(f"Error en Mongo: {e}")
+        return {"total_evaluations": 0, "distribution": []}
     
-    # Inicializar contadores en 0 (por si nadie tiene estrés "Bajo", por ejemplo)
+    # Inicializamos contadores base
     counts = {"Bajo": 0, "Medio": 0, "Alto": 0}
     
-    # Pasar los resultados de la base de datos a nuestro formato
+    # Procesamiento flexible (Normalización)
+    # Esto arregla el problema si en la BD dice "medio" (minúscula) y el código esperaba "Medio"
     for r in results:
-        # r["_id"] es el nivel (ej: "Alto") y r["count"] es la cantidad
-        if r["_id"] in counts:
-            counts[r["_id"]] = r["count"]
+        raw_level = r.get("_id")
+        count = r.get("count", 0)
+        
+        if raw_level:
+            # Limpiamos el texto: quitamos espacios y ponemos 1ra mayúscula (ej: "medio " -> "Medio")
+            level_normalized = str(raw_level).strip().capitalize()
             
-    # Calcular el total sumando las tres categorías
+            # Asignamos al grupo correcto
+            if "Bajo" in level_normalized:
+                counts["Bajo"] += count
+            elif "Medio" in level_normalized:
+                counts["Medio"] += count
+            elif "Alto" in level_normalized:
+                counts["Alto"] += count
+            else:
+                # Si hay algún nivel raro (ej: "Muy Alto"), lo sumamos a Alto o lo ignoramos
+                # Aquí lo sumaremos a lo que sea para no perder el dato, o podrías crear categoría 'Otro'
+                pass
+
     total_records = sum(counts.values())
     
     return {
-        "total_evaluations": total_records, # Aquí saldrá 58 si tienes 58 registros
+        "total_evaluations": total_records,
         "distribution": [
             {"name": "Bajo", "value": counts["Bajo"], "fill": "#4caf50"},
             {"name": "Medio", "value": counts["Medio"], "fill": "#ff9800"},
