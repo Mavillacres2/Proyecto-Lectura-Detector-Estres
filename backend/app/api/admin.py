@@ -13,46 +13,37 @@ def get_db():
     try: yield db
     finally: db.close()
 
-# 1. Dashboard Global: Conteo INTELIGENTE (Solo último estado por alumno)
+# 1. Dashboard Global: MODO TOTAL (Cuenta todo lo que existe en la base de datos)
 @router.get("/global-stats")
 def get_global_stats():
     collection = mongo_db["stress_evaluations"]
     
-    # Pipeline de Agregación de MongoDB
+    # Lógica Directa: Agrupar por nivel de estrés y contar TODO lo que hay.
+    # No filtramos por usuario único. Si hay 58 registros, contará 58.
     pipeline = [
-        # 1. Ordenar por fecha descendente (el más reciente primero)
-        {"$sort": {"created_at": -1}},
-        
-        # 2. Agrupar por ID de usuario y tomar solo el PRIMER resultado (el más reciente)
         {"$group": {
-            "_id": "$user_id",
-            "latest_level": {"$first": "$final_stress_level"}
-        }},
-        
-        # 3. Contar cuántos hay de cada nivel en este grupo filtrado
-        {"$group": {
-            "_id": "$latest_level",
-            "count": {"$sum": 1}
+            "_id": "$final_stress_level", # Agrupa por Bajo, Medio, Alto
+            "count": {"$sum": 1}          # Suma 1 por cada documento encontrado
         }}
     ]
     
-    # Ejecutar la consulta
+    # Ejecutar la consulta en Mongo
     results = list(collection.aggregate(pipeline))
     
-    # Inicializar contadores en 0 por si alguna categoría no tiene nadie
+    # Inicializar contadores en 0 (por si nadie tiene estrés "Bajo", por ejemplo)
     counts = {"Bajo": 0, "Medio": 0, "Alto": 0}
     
-    # Mapear los resultados de Mongo a nuestro diccionario
+    # Pasar los resultados de la base de datos a nuestro formato
     for r in results:
-        # r["_id"] es la categoría (ej: "Alto")
+        # r["_id"] es el nivel (ej: "Alto") y r["count"] es la cantidad
         if r["_id"] in counts:
             counts[r["_id"]] = r["count"]
             
-    # Calcular el total real de alumnos únicos
-    total_unique_students = sum(counts.values())
+    # Calcular el total sumando las tres categorías
+    total_records = sum(counts.values())
     
     return {
-        "total_evaluations": total_unique_students,
+        "total_evaluations": total_records, # Aquí saldrá 58 si tienes 58 registros
         "distribution": [
             {"name": "Bajo", "value": counts["Bajo"], "fill": "#4caf50"},
             {"name": "Medio", "value": counts["Medio"], "fill": "#ff9800"},
@@ -60,17 +51,15 @@ def get_global_stats():
         ]
     }
 
-# 2. Lista de Estudiantes (Para seleccionarlos)
+# 2. Lista de Estudiantes
 @router.get("/students")
 def get_students(db: Session = Depends(get_db)):
-    # Traer solo usuarios que sean estudiantes
     users = db.query(User).filter(User.role == 'student').all()
     return [{"id": u.id, "name": u.full_name, "email": u.email} for u in users]
 
-# 3. Historial de un Estudiante Específico
+# 3. Historial de un Estudiante
 @router.get("/student-history/{user_id}")
 def get_student_history(user_id: int):
-    # Buscar todas las evaluaciones de ese ID en Mongo
     cursor = mongo_db["stress_evaluations"].find({"user_id": user_id}).sort("created_at", 1)
     
     history = []
@@ -78,7 +67,7 @@ def get_student_history(user_id: int):
         history.append({
             "date": doc["created_at"].strftime("%Y-%m-%d %H:%M"),
             "pss_score": doc.get("pss_score", 0),
-            "negative_ratio": doc.get("negative_ratio", 0) * 100, # Convertir a %
+            "negative_ratio": doc.get("negative_ratio", 0) * 100,
             "final_level": doc.get("final_stress_level", "Medio")
         })
         
