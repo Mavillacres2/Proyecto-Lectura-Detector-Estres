@@ -12,6 +12,7 @@ export const registerUser = (data: {
   password: string;
   age: number;
   gender: string;
+  nrc: string;
 }) => {
   return axios.post(`${API_URL}/register`, data);
 };

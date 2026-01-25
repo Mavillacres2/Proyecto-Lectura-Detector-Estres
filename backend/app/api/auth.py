@@ -24,6 +24,7 @@ class RegisterPayload(BaseModel):
     password: str
     age: int
     gender: str
+    nrc: str
 
 
 class LoginPayload(BaseModel):
@@ -45,6 +46,7 @@ async def register(data: RegisterPayload, db: Session = Depends(get_db)):
     password=hash_password(data.password),
     age=data.age,
     gender=data.gender,
+    nrc=data.nrc,
 )
 
 
@@ -70,4 +72,5 @@ async def login(data: LoginPayload, db: Session = Depends(get_db)):
         "full_name": user.full_name,
         "token": token,
         "role": user.role,
+        "nrc": getattr(user, "nrc", None)
     }

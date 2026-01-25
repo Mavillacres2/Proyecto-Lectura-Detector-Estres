@@ -13,8 +13,9 @@ export default function Register() {
     email: "",
     password: "",
     confirm: "",
-    birth_year: "", // Nuevo campo
+    birth_year: "", 
     gender: "",
+    nrc: "",
   });
 
   const [errors, setErrors] = useState<any>({});
@@ -33,8 +34,23 @@ export default function Register() {
       return;
     }
 
+    // 🔢 Validación estricta para NRC
+    if (name === "nrc") {
+         // 1. Elimina cualquier caracter que NO sea número
+         const cleanValue = value.replace(/[^0-9]/g, "");
+         
+         // 2. Bloqueo de escritura: Si intenta escribir más de 5, no lo deja
+         if (cleanValue.length > 5) return; 
+
+         setForm({ ...form, nrc: cleanValue });
+         setErrors({ ...errors, nrc: "" });
+         return;
+    }
+
     setErrors({ ...errors, [name]: "" });
     setForm({ ...form, [name]: value });
+
+    
   };
 
   // ============================
@@ -48,6 +64,14 @@ export default function Register() {
       newErrors.full_name = "El nombre y apellido son obligatorios.";
     } else if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(form.full_name)) {
       newErrors.full_name = "Solo se permiten letras y espacios.";
+    }
+
+    // --- NRC (CORREGIDO) ---
+    // Verifica que no esté vacío y que tenga entre 4 y 5 dígitos
+    if (!form.nrc) {
+        newErrors.nrc = "El código NRC es obligatorio.";
+    } else if (!/^\d{4,5}$/.test(form.nrc)) { 
+        newErrors.nrc = "El NRC debe tener entre 4 y 5 números.";
     }
 
     // --- EMAIL ---
@@ -110,6 +134,7 @@ export default function Register() {
         password: form.password,
         age: calculatedAge, // Enviamos 'age' al backend como siempre
         gender: form.gender,
+        nrc: form.nrc,
       });
 
       alert("Usuario registrado exitosamente");
@@ -224,6 +249,20 @@ export default function Register() {
             disabled={loading}
           />
           {errors.confirm && <div style={errorStyle}>{errors.confirm}</div>}
+        </div>
+
+        {/* NRC (NUEVO INPUT) - Lo colocamos antes o después del nombre según prefieras */}
+        <div style={fieldGroupStyle}>
+            <input 
+                name="nrc" 
+                placeholder="Código NRC del curso (Ej: 2456)" 
+                value={form.nrc} 
+                onChange={handleChange} 
+                style={inputStyle} 
+                disabled={loading} 
+                maxLength={10} // Límite opcional
+            />
+            {errors.nrc && <div style={errorStyle}>{errors.nrc}</div>}
         </div>
 
         {/* Año de Nacimiento y Género */}
