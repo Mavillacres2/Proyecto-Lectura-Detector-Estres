@@ -101,39 +101,53 @@ export const AdminDashboard = () => {
     };
 
     // ---------------------------------------------------------
-    // 🔧 CORRECCIÓN: Preparación de Datos (Normalización)
+    // 🔧 CORRECCIÓN INTELIGENTE: Normalización de Datos
     // ---------------------------------------------------------
-    // Convertimos el porcentaje facial (0-100) a la escala PSS (0-40)
-    // para que la gráfica sea visualmente justa.
     const chartData = studentHistory.map((item) => {
-        const facialScaledToPSS = (item.negative_ratio / 100) * 40;
+        let rawValue = item.negative_ratio; // Puede venir como 0.5 o 50
+        
+        // AUTO-DETECCIÓN:
+        // Si el valor es menor o igual a 1 (ej: 0.5), asumimos que es un ratio (0-1) y lo convertimos a porcentaje (50).
+        // Si es mayor a 1 (ej: 50), asumimos que ya es porcentaje.
+        let percentage = rawValue;
+        if (rawValue <= 1.0) {
+            percentage = rawValue * 100; 
+        }
+
+        // AHORA ESCALAMOS A PSS (0-40)
+        // Regla de 3: Si 100% es 40 puntos, entonces "percentage" es X.
+        const facialScaledToPSS = (percentage / 100) * 40;
+
         return {
             ...item,
-            facial_scaled: facialScaledToPSS // Usaremos esto para dibujar la línea
+            display_percentage: percentage, // Guardamos el % real para el tooltip
+            facial_scaled: facialScaledToPSS // Guardamos el valor escalado para la línea verde
         };
     });
 
-    // 🔧 CORRECCIÓN: Tooltip Detallado para el Historial
-    // Muestra el valor original (%) aunque la gráfica use el valor escalado.
+    // 🔧 CORRECCIÓN: Tooltip usa el porcentaje calculado correctamente
     const CustomTooltipDetail = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
-            const dataOriginal = payload[0].payload;
+            // payload[0] es la barra, payload[1] es la linea morada, payload[2] es la verde (depende del orden)
+            // Mejor buscamos por dataKey para estar seguros
+            const originalData = payload[0].payload;
+
             return (
                 <div style={{ background: "white", padding: "15px", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 4px 15px rgba(0,0,0,0.1)" }}>
                     <p style={{ margin: "0 0 10px 0", fontWeight: "bold", color: "#334155", borderBottom: "1px solid #eee", paddingBottom: "5px" }}>
                         📅 {label}
                     </p>
                     <div style={{ marginBottom: "8px" }}>
-                        <span style={{ color: "#6366f1", fontWeight: "bold" }}>🟣 Mente (PSS): {dataOriginal.pss_score} / 40</span>
+                        <span style={{ color: "#6366f1", fontWeight: "bold" }}>🟣 Mente (PSS): {originalData.pss_score} / 40</span>
                     </div>
                     <div>
-                        {/* Mostramos el porcentaje real */}
+                        {/* Usamos 'display_percentage' que calculamos arriba */}
                         <span style={{ color: "#10b981", fontWeight: "bold" }}>
-                            🟢 Rostro (IA): {Number(dataOriginal.negative_ratio).toFixed(1)}%
+                            🟢 Rostro (IA): {Number(originalData.display_percentage).toFixed(1)}%
                         </span>
                     </div>
                     <div style={{ marginTop: "10px", fontSize: "0.75rem", color: "#94a3b8", fontStyle: "italic" }}>
-                        *Gráfica normalizada a escala 0-40 para comparación.
+                        *Gráfica normalizada a escala 0-40.
                     </div>
                 </div>
             );
@@ -262,15 +276,14 @@ export const AdminDashboard = () => {
                         ) : (
                             <div style={{ height: "450px" }}>
                                 <ResponsiveContainer width="100%" height="100%">
-                                    {/* USAMOS chartData (datos normalizados) EN VEZ DE studentHistory */}
+                                    {/* USAMOS chartData (datos normalizados) */}
                                     <ComposedChart data={chartData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                         <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" vertical={false} />
                                         <XAxis dataKey="date" scale="point" padding={{ left: 50, right: 50 }} tick={{ fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
                                         
-                                        {/* Y-Axis FIJO en 40 para mantener la escala del PSS */}
+                                        {/* Y-Axis FIJO en 40 */}
                                         <YAxis domain={[0, 40]} tick={{ fill: '#64748b' }} axisLine={false} label={{ value: 'Escala Unificada (0-40)', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8' } }} />
                                         
-                                        {/* Tooltip corregido */}
                                         <Tooltip content={<CustomTooltipDetail />} />
                                         <Legend wrapperStyle={{ paddingTop: "20px" }} />
 
@@ -278,14 +291,13 @@ export const AdminDashboard = () => {
                                         
                                         <Line type="monotone" dataKey="pss_score" stroke="#6366f1" name="Puntaje Test (PSS)" strokeWidth={3} dot={{ r: 5, fill: "#6366f1", strokeWidth: 2, stroke: "white" }} activeDot={{ r: 8 }} />
                                         
-                                        {/* LINEA VERDE: Usamos 'facial_scaled' pero la etiqueta dice % */}
                                         <Line type="monotone" dataKey="facial_scaled" stroke="#10b981" name="% Negatividad Facial" strokeWidth={3} dot={{ r: 5, fill: "#10b981", strokeWidth: 2, stroke: "white" }} activeDot={{ r: 8 }} />
                                     </ComposedChart>
                                 </ResponsiveContainer>
                             </div>
                         )}
 
-                        {/* --- NOTA PEDAGÓGICA MEJORADA --- */}
+                        {/* --- NOTA PEDAGÓGICA --- */}
                         <div style={{ marginTop: "25px", background: "#f8fafc", padding: "20px", borderRadius: "12px", borderLeft: "5px solid #2563eb", boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
                             <h4 style={{ margin: "0 0 15px 0", color: "#1e293b", display: "flex", alignItems: "center", gap: "10px" }}>
                                 🧠 ¿Cómo interpretar esta gráfica?
