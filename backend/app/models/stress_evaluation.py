@@ -25,5 +25,6 @@ class StressEvaluation(Base):
     pss_score = Column(Integer)
     pss_level = Column(String(20))
     emotion_level = Column(String(20))
+    
 
     created_at = Column(DateTime, default=datetime.utcnow)

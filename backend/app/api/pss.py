@@ -183,6 +183,7 @@ def submit_pss(payload: PSSSubmitPayload, db: Session = Depends(get_db)):
         "session_id": payload.session_id,
         "age": user.age,
         "gender": user.gender,
+        "nrc": user.nrc,
         "pss_score": payload.pss_score,
         
         # Resultados
