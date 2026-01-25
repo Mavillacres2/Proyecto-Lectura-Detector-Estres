@@ -301,13 +301,21 @@ export const AdminDashboard = () => {
                         )}
                         
                         {studentHistory.length > 0 && (
+                            
+                           
+
                             <div style={{ marginTop: "20px", background: "#f8fafc", padding: "15px", borderRadius: "8px", display: "flex", gap: "10px", alignItems: "center", color: "#475569", fontSize: "0.9rem" }}>
+                                <span>💡</span>
+                                 <p style={{ textAlign: "center", fontSize: "0.9rem", color: "#555", marginTop: "15px", background: "#eef", padding: "10px", borderRadius: "5px" }}>
+                                    ℹ️ <strong>Ayuda visual:</strong> Los puntos representan cada sesión. Si solo ves un punto, significa que el estudiante solo ha realizado una prueba hasta ahora.
+                                </p>
                                 <span>💡</span>
                                 <div>
                                     <strong>Nota Visual:</strong> Si solo ves un punto, es porque el estudiante solo ha hecho una prueba.
                                     La línea verde indica qué tan negativa fue su expresión facial durante el test.
                                 </div>
                             </div>
+
                         )}
                     </div>
                 </div>
