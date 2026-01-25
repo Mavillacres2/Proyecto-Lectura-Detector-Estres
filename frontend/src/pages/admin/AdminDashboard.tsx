@@ -28,14 +28,26 @@ export const AdminDashboard = () => {
     const [studentHistory, setStudentHistory] = useState<any[]>([]);
 
     useEffect(() => {
-        fetchGlobalData();
-        fetchStudents();
+        // Verificar si hay token
+        const token = localStorage.getItem("token");
+        if (!token) {
+            navigate("/login");
+            return;
+        }
+        fetchGlobalData(token);
+        fetchStudents(token);
     }, []);
 
-    const fetchGlobalData = async () => {
+    // Helper para headers
+    const getAuthHeaders = (token: string) => ({
+        headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const fetchGlobalData = async (token: string) => {
         try {
-            const res = await axios.get(`${API_URL}/admin/global-stats`);
-            // Asignamos colores manualmente para asegurar que el gráfico se vea bien
+            // Enviamos el token para que el backend sepa de qué NRC somos
+            const res = await axios.get(`${API_URL}/admin/global-stats`, getAuthHeaders(token));
+            
             const dataWithColors = {
                 ...res.data,
                 distribution: res.data.distribution.map((d: any) => ({
@@ -44,20 +56,24 @@ export const AdminDashboard = () => {
                 }))
             };
             setGlobalStats(dataWithColors);
-        } catch (e) { console.error(e); }
+        } catch (e: any) { 
+            console.error(e);
+            if(e.response?.status === 401) handleLogout();
+        }
     };
 
-    const fetchStudents = async () => {
+    const fetchStudents = async (token: string) => {
         try {
-            const res = await axios.get(`${API_URL}/admin/students`);
+            const res = await axios.get(`${API_URL}/admin/students`, getAuthHeaders(token));
             setStudents(res.data);
         } catch (e) { console.error(e); }
     };
 
     const handleStudentClick = async (student: any) => {
         setSelectedStudent(student);
+        const token = localStorage.getItem("token") || "";
         try {
-            const res = await axios.get(`${API_URL}/admin/student-history/${student.id}`);
+            const res = await axios.get(`${API_URL}/admin/student-history/${student.id}`, getAuthHeaders(token));
             setStudentHistory(res.data);
             setView("detail");
         } catch (e) { console.error(e); }
@@ -97,6 +113,14 @@ export const AdminDashboard = () => {
                     </div>
                     <h1 style={{ margin: 0, color: "#1e293b", fontSize: "1.4rem", fontWeight: "700" }}>Panel de Docente</h1>
                 </div>
+                
+                {/* Indicador de Curso (Opcional, para ver que funcionó) */}
+                {globalStats?.nrc_filter && (
+                    <div style={{ background: "#e0f2f1", color: "#00695c", padding: "5px 15px", borderRadius: "20px", fontSize: "0.9rem", fontWeight: "bold" }}>
+                        Curso NRC: {globalStats.nrc_filter}
+                    </div>
+                )}
+
                 <button onClick={handleLogout} style={{ display: "flex", alignItems: "center", gap: "8px", border: "none", background: "#fee2e2", color: "#ef4444", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: "600", transition: "0.2s" }}>
                     <LogOut size={18} /> Salir
                 </button>
@@ -113,7 +137,7 @@ export const AdminDashboard = () => {
                                 <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: "0 0 5px 0", color: "#334155" }}>
                                     <PieIcon size={20} className="text-gray-500" /> Distribución de Estrés
                                 </h3>
-                                <p style={{ color: "#64748b", fontSize: "0.9rem", margin: 0 }}>Panorama general de la clase</p>
+                                <p style={{ color: "#64748b", fontSize: "0.9rem", margin: 0 }}>Panorama general del curso</p>
                             </div>
                         </div>
 
@@ -124,8 +148,8 @@ export const AdminDashboard = () => {
                                         data={globalStats?.distribution || []}
                                         cx="50%"
                                         cy="50%"
-                                        innerRadius={90}  // Radio interno (hace el hueco de la dona)
-                                        outerRadius={130} // Radio externo
+                                        innerRadius={90}
+                                        outerRadius={130}
                                         paddingAngle={5}
                                         dataKey="value"
                                     >
@@ -142,7 +166,6 @@ export const AdminDashboard = () => {
                                         formatter={(value, entry: any) => {
                                             const val = entry.payload.value;
                                             const total = globalStats?.total_evaluations || 1;
-                                            // Calculamos porcentaje para la leyenda
                                             const percent = ((val / total) * 100).toFixed(0);
                                             return <span style={{ color: "#334155", fontWeight: "500", marginLeft: "10px", fontSize: "1rem" }}>{value} ({percent}%)</span>;
                                         }}
@@ -163,12 +186,12 @@ export const AdminDashboard = () => {
                     {/* Tarjeta 2: Lista de Estudiantes */}
                     <div style={{ background: "white", padding: "25px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column", maxHeight: "550px" }}>
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: "0 0 20px 0", color: "#334155" }}>
-                            <Users size={20} /> Lista de Estudiantes
+                            <Users size={20} /> Lista de Estudiantes (NRC: {globalStats?.nrc_filter || "..."})
                         </h3>
                         
                         <div style={{ overflowY: "auto", paddingRight: "5px", flex: 1 }}>
                             {students.length === 0 ? (
-                                <p style={{color: "#999", textAlign: "center", marginTop: "20px"}}>No hay estudiantes registrados.</p>
+                                <p style={{color: "#999", textAlign: "center", marginTop: "20px"}}>No hay estudiantes registrados en este curso.</p>
                             ) : (
                                 students.map((s) => (
                                     <div
@@ -252,10 +275,8 @@ export const AdminDashboard = () => {
                                         />
                                         <Legend wrapperStyle={{ paddingTop: "20px" }} />
 
-                                        {/* Barra de fondo sutil */}
                                         <Bar dataKey="pss_score" name="Nivel PSS (Barra)" barSize={40} fill="#e2e8f0" radius={[4, 4, 0, 0]} />
 
-                                        {/* Líneas principales */}
                                         <Line 
                                             type="monotone" 
                                             dataKey="pss_score" 
