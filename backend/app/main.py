@@ -22,7 +22,7 @@ origins = [
 # CAMBIO IMPORTANTE: Permitir todo (*) para evitar errores en el primer deploy
 app.add_middleware(
     CORSMiddleware,
-      allow_origins=["*"],  
+    allow_origins=["*"],  
     # Esto permite: https://proyecto-lectura-detector-estres-CUALQUIERCOSA.vercel.app
     allow_origin_regex="https://proyecto-lectura-detector-estres.*\.vercel\.app",
     allow_credentials=True,

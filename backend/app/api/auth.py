@@ -72,5 +72,5 @@ async def login(data: LoginPayload, db: Session = Depends(get_db)):
         "full_name": user.full_name,
         "token": token,
         "role": user.role,
-        "nrc": getattr(user, "nrc", None)
+        "nrc": user.nrc,
     }
