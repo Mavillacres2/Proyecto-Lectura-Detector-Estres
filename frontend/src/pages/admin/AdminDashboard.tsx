@@ -47,7 +47,7 @@ export const AdminDashboard = () => {
         try {
             // Enviamos el token para que el backend sepa de qué NRC somos
             const res = await axios.get(`${API_URL}/admin/global-stats`, getAuthHeaders(token));
-            
+
             const dataWithColors = {
                 ...res.data,
                 distribution: res.data.distribution.map((d: any) => ({
@@ -56,9 +56,9 @@ export const AdminDashboard = () => {
                 }))
             };
             setGlobalStats(dataWithColors);
-        } catch (e: any) { 
+        } catch (e: any) {
             console.error(e);
-            if(e.response?.status === 401) handleLogout();
+            if (e.response?.status === 401) handleLogout();
         }
     };
 
@@ -90,7 +90,7 @@ export const AdminDashboard = () => {
             const data = payload[0].payload;
             const total = globalStats?.total_evaluations || 1;
             const percent = ((data.value / total) * 100).toFixed(1);
-            
+
             return (
                 <div style={{ background: "white", padding: "12px", border: "1px solid #eee", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
                     <p style={{ margin: 0, fontWeight: "bold", color: data.fill, fontSize: "1rem" }}>{data.name}</p>
@@ -113,7 +113,7 @@ export const AdminDashboard = () => {
                     </div>
                     <h1 style={{ margin: 0, color: "#1e293b", fontSize: "1.4rem", fontWeight: "700" }}>Panel de Docente</h1>
                 </div>
-                
+
                 {/* Indicador de Curso (Opcional, para ver que funcionó) */}
                 {globalStats?.nrc_filter && (
                     <div style={{ background: "#e0f2f1", color: "#00695c", padding: "5px 15px", borderRadius: "20px", fontSize: "0.9rem", fontWeight: "bold" }}>
@@ -158,9 +158,9 @@ export const AdminDashboard = () => {
                                         ))}
                                     </Pie>
                                     <Tooltip content={<CustomTooltip />} />
-                                    <Legend 
-                                        verticalAlign="middle" 
-                                        align="right" 
+                                    <Legend
+                                        verticalAlign="middle"
+                                        align="right"
                                         layout="vertical"
                                         iconSize={15}
                                         formatter={(value, entry: any) => {
@@ -172,7 +172,7 @@ export const AdminDashboard = () => {
                                     />
                                 </PieChart>
                             </ResponsiveContainer>
-                            
+
                             {/* Texto Central Gigante */}
                             <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", pointerEvents: "none" }}>
                                 <div style={{ fontSize: "3rem", fontWeight: "bold", color: "#0f172a", lineHeight: "1" }}>
@@ -188,10 +188,10 @@ export const AdminDashboard = () => {
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: "0 0 20px 0", color: "#334155" }}>
                             <Users size={20} /> Lista de Estudiantes (NRC: {globalStats?.nrc_filter || "..."})
                         </h3>
-                        
+
                         <div style={{ overflowY: "auto", paddingRight: "5px", flex: 1 }}>
                             {students.length === 0 ? (
-                                <p style={{color: "#999", textAlign: "center", marginTop: "20px"}}>No hay estudiantes registrados en este curso.</p>
+                                <p style={{ color: "#999", textAlign: "center", marginTop: "20px" }}>No hay estudiantes registrados en este curso.</p>
                             ) : (
                                 students.map((s) => (
                                     <div
@@ -235,8 +235,8 @@ export const AdminDashboard = () => {
             {/* VISTA DETALLE ESTUDIANTE */}
             {view === "detail" && (
                 <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
-                    <button 
-                        onClick={() => setView("global")} 
+                    <button
+                        onClick={() => setView("global")}
                         style={{ marginBottom: "20px", cursor: "pointer", border: "none", background: "white", padding: "10px 20px", borderRadius: "8px", color: "#334155", fontWeight: "600", boxShadow: "0 2px 5px rgba(0,0,0,0.05)", display: "flex", alignItems: "center", gap: "8px" }}
                     >
                         ← Volver al Panel
@@ -257,63 +257,93 @@ export const AdminDashboard = () => {
                                 <ResponsiveContainer width="100%" height="100%">
                                     <ComposedChart data={studentHistory} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                         <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" vertical={false} />
-                                        <XAxis 
-                                            dataKey="date" 
-                                            scale="point" 
-                                            padding={{ left: 50, right: 50 }} 
+                                        <XAxis
+                                            dataKey="date"
+                                            scale="point"
+                                            padding={{ left: 50, right: 50 }}
                                             tick={{ fill: '#64748b' }}
                                             axisLine={{ stroke: '#e2e8f0' }}
                                         />
-                                        <YAxis 
-                                            domain={[0, 'auto']} 
+                                        <YAxis
+                                            domain={[0, 'auto']}
                                             tick={{ fill: '#64748b' }}
                                             axisLine={false}
-                                            label={{ value: 'Nivel / Puntaje', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8' } }} 
+                                            label={{ value: 'Nivel / Puntaje', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8' } }}
                                         />
-                                        <Tooltip 
+                                        <Tooltip
                                             contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
                                         />
                                         <Legend wrapperStyle={{ paddingTop: "20px" }} />
 
                                         <Bar dataKey="pss_score" name="Nivel PSS (Barra)" barSize={40} fill="#e2e8f0" radius={[4, 4, 0, 0]} />
 
-                                        <Line 
-                                            type="monotone" 
-                                            dataKey="pss_score" 
-                                            stroke="#6366f1" 
-                                            name="Puntaje Test (PSS)" 
-                                            strokeWidth={3} 
-                                            dot={{ r: 5, fill: "#6366f1", strokeWidth: 2, stroke: "white" }} 
-                                            activeDot={{ r: 8 }} 
+                                        <Line
+                                            type="monotone"
+                                            dataKey="pss_score"
+                                            stroke="#6366f1"
+                                            name="Puntaje Test (PSS)"
+                                            strokeWidth={3}
+                                            dot={{ r: 5, fill: "#6366f1", strokeWidth: 2, stroke: "white" }}
+                                            activeDot={{ r: 8 }}
                                         />
-                                        <Line 
-                                            type="monotone" 
-                                            dataKey="negative_ratio" 
-                                            stroke="#10b981" 
-                                            name="% Negatividad Facial" 
-                                            strokeWidth={3} 
-                                            dot={{ r: 5, fill: "#10b981", strokeWidth: 2, stroke: "white" }} 
-                                            activeDot={{ r: 8 }} 
+                                        <Line
+                                            type="monotone"
+                                            dataKey="negative_ratio"
+                                            stroke="#10b981"
+                                            name="% Negatividad Facial"
+                                            strokeWidth={3}
+                                            dot={{ r: 5, fill: "#10b981", strokeWidth: 2, stroke: "white" }}
+                                            activeDot={{ r: 8 }}
                                         />
                                     </ComposedChart>
                                 </ResponsiveContainer>
                             </div>
                         )}
-                        
+
+                        {/* --- NOTA PEDAGÓGICA PARA EL DOCENTE --- */}
+                        <div style={{ marginTop: "25px", background: "#f8fafc", padding: "20px", borderRadius: "12px", borderLeft: "5px solid #2563eb", boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
+                            <h4 style={{ margin: "0 0 15px 0", color: "#1e293b", display: "flex", alignItems: "center", gap: "10px" }}>
+                                🧠 ¿Cómo interpretar esta gráfica?
+                            </h4>
+
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+                                {/* Explicación de Colores */}
+                                <div>
+                                    <ul style={{ paddingLeft: "20px", margin: 0, color: "#475569", fontSize: "0.95rem", lineHeight: "1.8" }}>
+                                        <li>
+                                            <span style={{ color: "#6366f1", fontWeight: "bold" }}>● Punto Morado (Subjetivo):</span>
+                                            <br />Es lo que el alumno <em>dice</em> sentir en el cuestionario.
+                                        </li>
+                                        <li style={{ marginTop: "10px" }}>
+                                            <span style={{ color: "#10b981", fontWeight: "bold" }}>● Punto Verde (Biométrico):</span>
+                                            <br />Es lo que su rostro <em>demuestra</em> inconscientemente.
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                {/* Explicación de la Brecha */}
+                                <div style={{ background: "#fff", padding: "15px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                                    <strong style={{ color: "#0f172a", display: "block", marginBottom: "5px" }}>⚠️ La "Brecha de Estrés"</strong>
+                                    <p style={{ margin: 0, fontSize: "0.9rem", color: "#64748b" }}>
+                                        Si ves mucha distancia vertical entre el punto morado y el verde, existe una <strong>incoherencia</strong>.
+                                        <br /><br />
+                                        <em>Ejemplo:</em> Si el Morado está alto (estrés) y el Verde bajo (calma), el alumno podría estar <strong>ocultando sus emociones</strong> (estrés silencioso).
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
                         {studentHistory.length > 0 && (
-                            
-                           
+
+
+
 
                             <div style={{ marginTop: "20px", background: "#f8fafc", padding: "15px", borderRadius: "8px", display: "flex", gap: "10px", alignItems: "center", color: "#475569", fontSize: "0.9rem" }}>
                                 <span>💡</span>
-                                 <p style={{ textAlign: "center", fontSize: "0.9rem", color: "#555", marginTop: "15px", background: "#eef", padding: "10px", borderRadius: "5px" }}>
+                                <p style={{ textAlign: "center", fontSize: "0.9rem", color: "#555", marginTop: "15px", background: "#eef", padding: "10px", borderRadius: "5px" }}>
                                     ℹ️ <strong>Ayuda visual:</strong> Los puntos representan cada sesión. Si solo ves un punto, significa que el estudiante solo ha realizado una prueba hasta ahora.
                                 </p>
-                                <span>💡</span>
-                                <div>
-                                    <strong>Nota Visual:</strong> Si solo ves un punto, es porque el estudiante solo ha hecho una prueba.
-                                    La línea verde indica qué tan negativa fue su expresión facial durante el test.
-                                </div>
+
                             </div>
 
                         )}
