@@ -17,11 +17,13 @@ app = FastAPI()
 origins = [
     "http://localhost:5173",
     "https://proyecto-lectura-detector-estres.vercel.app",
+    "https://proyecto-lectura-detector-estres-d0jzoz7ag.vercel.app"
 ]
 
 # CAMBIO IMPORTANTE: Permitir todo (*) para evitar errores en el primer deploy
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=origins,
     allow_origins=["*"],  # Dejar en ["*"] por ahora
     allow_credentials=True,
     allow_methods=["*"],
