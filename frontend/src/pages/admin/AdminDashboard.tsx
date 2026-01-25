@@ -45,9 +45,7 @@ export const AdminDashboard = () => {
 
     const fetchGlobalData = async (token: string) => {
         try {
-            // Enviamos el token para que el backend sepa de qué NRC somos
             const res = await axios.get(`${API_URL}/admin/global-stats`, getAuthHeaders(token));
-
             const dataWithColors = {
                 ...res.data,
                 distribution: res.data.distribution.map((d: any) => ({
@@ -84,8 +82,8 @@ export const AdminDashboard = () => {
         navigate("/login");
     };
 
-    // Tooltip personalizado para la Dona
-    const CustomTooltip = ({ active, payload }: any) => {
+    // Tooltip para el PieChart (Dona)
+    const CustomTooltipPie = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
             const total = globalStats?.total_evaluations || 1;
@@ -102,6 +100,48 @@ export const AdminDashboard = () => {
         return null;
     };
 
+    // ---------------------------------------------------------
+    // 🔧 CORRECCIÓN: Preparación de Datos (Normalización)
+    // ---------------------------------------------------------
+    // Convertimos el porcentaje facial (0-100) a la escala PSS (0-40)
+    // para que la gráfica sea visualmente justa.
+    const chartData = studentHistory.map((item) => {
+        const facialScaledToPSS = (item.negative_ratio / 100) * 40;
+        return {
+            ...item,
+            facial_scaled: facialScaledToPSS // Usaremos esto para dibujar la línea
+        };
+    });
+
+    // 🔧 CORRECCIÓN: Tooltip Detallado para el Historial
+    // Muestra el valor original (%) aunque la gráfica use el valor escalado.
+    const CustomTooltipDetail = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            const dataOriginal = payload[0].payload;
+            return (
+                <div style={{ background: "white", padding: "15px", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 4px 15px rgba(0,0,0,0.1)" }}>
+                    <p style={{ margin: "0 0 10px 0", fontWeight: "bold", color: "#334155", borderBottom: "1px solid #eee", paddingBottom: "5px" }}>
+                        📅 {label}
+                    </p>
+                    <div style={{ marginBottom: "8px" }}>
+                        <span style={{ color: "#6366f1", fontWeight: "bold" }}>🟣 Mente (PSS): {dataOriginal.pss_score} / 40</span>
+                    </div>
+                    <div>
+                        {/* Mostramos el porcentaje real */}
+                        <span style={{ color: "#10b981", fontWeight: "bold" }}>
+                            🟢 Rostro (IA): {Number(dataOriginal.negative_ratio).toFixed(1)}%
+                        </span>
+                    </div>
+                    <div style={{ marginTop: "10px", fontSize: "0.75rem", color: "#94a3b8", fontStyle: "italic" }}>
+                        *Gráfica normalizada a escala 0-40 para comparación.
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    };
+
+
     return (
         <div style={{ minHeight: "100vh", background: "#f0f2f5", padding: "20px", fontFamily: "'Segoe UI', Roboto, sans-serif" }}>
 
@@ -114,7 +154,6 @@ export const AdminDashboard = () => {
                     <h1 style={{ margin: 0, color: "#1e293b", fontSize: "1.4rem", fontWeight: "700" }}>Panel de Docente</h1>
                 </div>
 
-                {/* Indicador de Curso (Opcional, para ver que funcionó) */}
                 {globalStats?.nrc_filter && (
                     <div style={{ background: "#e0f2f1", color: "#00695c", padding: "5px 15px", borderRadius: "20px", fontSize: "0.9rem", fontWeight: "bold" }}>
                         Curso NRC: {globalStats.nrc_filter}
@@ -129,8 +168,7 @@ export const AdminDashboard = () => {
             {/* VISTA GLOBAL */}
             {view === "global" && (
                 <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: "25px" }}>
-
-                    {/* Tarjeta 1: Gráfico de DONA (Distribución) */}
+                    {/* Tarjeta 1: Dona */}
                     <div style={{ background: "white", padding: "25px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column" }}>
                         <div style={{ display: 'flex', justifyContent: "space-between", alignItems: "start" }}>
                             <div>
@@ -157,23 +195,15 @@ export const AdminDashboard = () => {
                                             <Cell key={`cell-${index}`} fill={entry.fill} stroke="none" />
                                         ))}
                                     </Pie>
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Legend
-                                        verticalAlign="middle"
-                                        align="right"
-                                        layout="vertical"
-                                        iconSize={15}
-                                        formatter={(value, entry: any) => {
-                                            const val = entry.payload.value;
-                                            const total = globalStats?.total_evaluations || 1;
-                                            const percent = ((val / total) * 100).toFixed(0);
-                                            return <span style={{ color: "#334155", fontWeight: "500", marginLeft: "10px", fontSize: "1rem" }}>{value} ({percent}%)</span>;
-                                        }}
-                                    />
+                                    <Tooltip content={<CustomTooltipPie />} />
+                                    <Legend verticalAlign="middle" align="right" layout="vertical" iconSize={15} formatter={(value, entry: any) => {
+                                        const val = entry.payload.value;
+                                        const total = globalStats?.total_evaluations || 1;
+                                        const percent = ((val / total) * 100).toFixed(0);
+                                        return <span style={{ color: "#334155", fontWeight: "500", marginLeft: "10px", fontSize: "1rem" }}>{value} ({percent}%)</span>;
+                                    }} />
                                 </PieChart>
                             </ResponsiveContainer>
-
-                            {/* Texto Central Gigante */}
                             <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", pointerEvents: "none" }}>
                                 <div style={{ fontSize: "3rem", fontWeight: "bold", color: "#0f172a", lineHeight: "1" }}>
                                     {globalStats?.total_evaluations || 0}
@@ -183,41 +213,21 @@ export const AdminDashboard = () => {
                         </div>
                     </div>
 
-                    {/* Tarjeta 2: Lista de Estudiantes */}
+                    {/* Tarjeta 2: Lista */}
                     <div style={{ background: "white", padding: "25px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column", maxHeight: "550px" }}>
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: "0 0 20px 0", color: "#334155" }}>
                             <Users size={20} /> Lista de Estudiantes (NRC: {globalStats?.nrc_filter || "..."})
                         </h3>
-
                         <div style={{ overflowY: "auto", paddingRight: "5px", flex: 1 }}>
                             {students.length === 0 ? (
                                 <p style={{ color: "#999", textAlign: "center", marginTop: "20px" }}>No hay estudiantes registrados en este curso.</p>
                             ) : (
                                 students.map((s) => (
-                                    <div
-                                        key={s.id}
-                                        onClick={() => handleStudentClick(s)}
-                                        style={{
-                                            padding: "16px", marginBottom: "10px", borderRadius: "8px",
-                                            border: "1px solid #f1f5f9", cursor: "pointer",
-                                            display: "flex", justifyContent: "space-between", alignItems: "center",
-                                            transition: "all 0.2s ease"
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.background = "#f8fafc";
-                                            e.currentTarget.style.borderColor = "#cbd5e1";
-                                            e.currentTarget.style.transform = "translateX(5px)";
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.background = "transparent";
-                                            e.currentTarget.style.borderColor = "#f1f5f9";
-                                            e.currentTarget.style.transform = "translateX(0)";
-                                        }}
-                                    >
+                                    <div key={s.id} onClick={() => handleStudentClick(s)} style={{ padding: "16px", marginBottom: "10px", borderRadius: "8px", border: "1px solid #f1f5f9", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "all 0.2s ease" }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.borderColor = "#cbd5e1"; e.currentTarget.style.transform = "translateX(5px)"; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#f1f5f9"; e.currentTarget.style.transform = "translateX(0)"; }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                                            <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", color: "#64748b", fontSize: "1.1rem" }}>
-                                                {s.name.charAt(0).toUpperCase()}
-                                            </div>
+                                            <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", color: "#64748b", fontSize: "1.1rem" }}>{s.name.charAt(0).toUpperCase()}</div>
                                             <div>
                                                 <div style={{ fontWeight: "600", color: "#334155" }}>{s.name}</div>
                                                 <div style={{ fontSize: "0.85rem", color: "#94a3b8" }}>{s.email}</div>
@@ -235,10 +245,7 @@ export const AdminDashboard = () => {
             {/* VISTA DETALLE ESTUDIANTE */}
             {view === "detail" && (
                 <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
-                    <button
-                        onClick={() => setView("global")}
-                        style={{ marginBottom: "20px", cursor: "pointer", border: "none", background: "white", padding: "10px 20px", borderRadius: "8px", color: "#334155", fontWeight: "600", boxShadow: "0 2px 5px rgba(0,0,0,0.05)", display: "flex", alignItems: "center", gap: "8px" }}
-                    >
+                    <button onClick={() => setView("global")} style={{ marginBottom: "20px", cursor: "pointer", border: "none", background: "white", padding: "10px 20px", borderRadius: "8px", color: "#334155", fontWeight: "600", boxShadow: "0 2px 5px rgba(0,0,0,0.05)", display: "flex", alignItems: "center", gap: "8px" }}>
                         ← Volver al Panel
                     </button>
 
@@ -255,97 +262,55 @@ export const AdminDashboard = () => {
                         ) : (
                             <div style={{ height: "450px" }}>
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <ComposedChart data={studentHistory} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                                    {/* USAMOS chartData (datos normalizados) EN VEZ DE studentHistory */}
+                                    <ComposedChart data={chartData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                         <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" vertical={false} />
-                                        <XAxis
-                                            dataKey="date"
-                                            scale="point"
-                                            padding={{ left: 50, right: 50 }}
-                                            tick={{ fill: '#64748b' }}
-                                            axisLine={{ stroke: '#e2e8f0' }}
-                                        />
-                                        <YAxis
-                                            domain={[0, 'auto']}
-                                            tick={{ fill: '#64748b' }}
-                                            axisLine={false}
-                                            label={{ value: 'Nivel / Puntaje', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8' } }}
-                                        />
-                                        <Tooltip
-                                            contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
-                                        />
+                                        <XAxis dataKey="date" scale="point" padding={{ left: 50, right: 50 }} tick={{ fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
+                                        
+                                        {/* Y-Axis FIJO en 40 para mantener la escala del PSS */}
+                                        <YAxis domain={[0, 40]} tick={{ fill: '#64748b' }} axisLine={false} label={{ value: 'Escala Unificada (0-40)', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8' } }} />
+                                        
+                                        {/* Tooltip corregido */}
+                                        <Tooltip content={<CustomTooltipDetail />} />
                                         <Legend wrapperStyle={{ paddingTop: "20px" }} />
 
                                         <Bar dataKey="pss_score" name="Nivel PSS (Barra)" barSize={40} fill="#e2e8f0" radius={[4, 4, 0, 0]} />
-
-                                        <Line
-                                            type="monotone"
-                                            dataKey="pss_score"
-                                            stroke="#6366f1"
-                                            name="Puntaje Test (PSS)"
-                                            strokeWidth={3}
-                                            dot={{ r: 5, fill: "#6366f1", strokeWidth: 2, stroke: "white" }}
-                                            activeDot={{ r: 8 }}
-                                        />
-                                        <Line
-                                            type="monotone"
-                                            dataKey="negative_ratio"
-                                            stroke="#10b981"
-                                            name="% Negatividad Facial"
-                                            strokeWidth={3}
-                                            dot={{ r: 5, fill: "#10b981", strokeWidth: 2, stroke: "white" }}
-                                            activeDot={{ r: 8 }}
-                                        />
+                                        
+                                        <Line type="monotone" dataKey="pss_score" stroke="#6366f1" name="Puntaje Test (PSS)" strokeWidth={3} dot={{ r: 5, fill: "#6366f1", strokeWidth: 2, stroke: "white" }} activeDot={{ r: 8 }} />
+                                        
+                                        {/* LINEA VERDE: Usamos 'facial_scaled' pero la etiqueta dice % */}
+                                        <Line type="monotone" dataKey="facial_scaled" stroke="#10b981" name="% Negatividad Facial" strokeWidth={3} dot={{ r: 5, fill: "#10b981", strokeWidth: 2, stroke: "white" }} activeDot={{ r: 8 }} />
                                     </ComposedChart>
                                 </ResponsiveContainer>
                             </div>
                         )}
 
-                        {/* --- NOTA PEDAGÓGICA PARA EL DOCENTE --- */}
+                        {/* --- NOTA PEDAGÓGICA MEJORADA --- */}
                         <div style={{ marginTop: "25px", background: "#f8fafc", padding: "20px", borderRadius: "12px", borderLeft: "5px solid #2563eb", boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
                             <h4 style={{ margin: "0 0 15px 0", color: "#1e293b", display: "flex", alignItems: "center", gap: "10px" }}>
                                 🧠 ¿Cómo interpretar esta gráfica?
                             </h4>
-
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-                                {/* Explicación de Colores */}
                                 <div>
                                     <ul style={{ paddingLeft: "20px", margin: 0, color: "#475569", fontSize: "0.95rem", lineHeight: "1.8" }}>
-                                        <li>
-                                            <span style={{ color: "#6366f1", fontWeight: "bold" }}>● Punto Morado (Subjetivo):</span>
-                                            <br />Es lo que el alumno <em>dice</em> sentir en el cuestionario.
-                                        </li>
-                                        <li style={{ marginTop: "10px" }}>
-                                            <span style={{ color: "#10b981", fontWeight: "bold" }}>● Punto Verde (Biométrico):</span>
-                                            <br />Es lo que su rostro <em>demuestra</em> inconscientemente.
-                                        </li>
+                                        <li><span style={{ color: "#6366f1", fontWeight: "bold" }}>● Punto Morado (Subjetivo):</span><br />Es lo que el alumno <em>dice</em> sentir en el cuestionario (0-40).</li>
+                                        <li style={{ marginTop: "10px" }}><span style={{ color: "#10b981", fontWeight: "bold" }}>● Punto Verde (Biométrico):</span><br />Es lo que su rostro <em>demuestra</em>. <br/><em>(Nota: El % facial se ha escalado visualmente a 0-40 para poder compararlos).</em></li>
                                     </ul>
                                 </div>
-
-                                {/* Explicación de la Brecha */}
                                 <div style={{ background: "#fff", padding: "15px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
                                     <strong style={{ color: "#0f172a", display: "block", marginBottom: "5px" }}>⚠️ La "Brecha de Estrés"</strong>
                                     <p style={{ margin: 0, fontSize: "0.9rem", color: "#64748b" }}>
-                                        Si ves mucha distancia vertical entre el punto morado y el verde, existe una <strong>incoherencia</strong>.
-                                        <br /><br />
-                                        <em>Ejemplo:</em> Si el Morado está alto (estrés) y el Verde bajo (calma), el alumno podría estar <strong>ocultando sus emociones</strong> (estrés silencioso).
+                                        Si ves mucha distancia vertical entre el punto morado y el verde, existe una <strong>incoherencia</strong>.<br /><br />
+                                        <em>Ejemplo:</em> Si el Morado está alto (estrés) y el Verde bajo (calma), el alumno podría estar <strong>ocultando sus emociones</strong>.
                                     </p>
                                 </div>
                             </div>
                         </div>
 
                         {studentHistory.length > 0 && (
-
-
-
-
-                            <div style={{ marginTop: "20px", background: "#f8fafc", padding: "15px", borderRadius: "8px", display: "flex", gap: "10px", alignItems: "center", color: "#475569", fontSize: "0.9rem" }}>
-                                <span>💡</span>
-                                <p style={{ textAlign: "center", fontSize: "0.9rem", color: "#555", marginTop: "15px", background: "#eef", padding: "10px", borderRadius: "5px" }}>
-                                    ℹ️ <strong>Ayuda visual:</strong> Los puntos representan cada sesión. Si solo ves un punto, significa que el estudiante solo ha realizado una prueba hasta ahora.
-                                </p>
-
-                            </div>
-
+                             <p style={{ textAlign: "center", fontSize: "0.9rem", color: "#555", marginTop: "15px", background: "#eef", padding: "10px", borderRadius: "5px" }}>
+                                ℹ️ <strong>Ayuda visual:</strong> Los puntos representan cada sesión. Si solo ves un punto, significa que el estudiante solo ha realizado una prueba hasta ahora.
+                            </p>
                         )}
                     </div>
                 </div>
