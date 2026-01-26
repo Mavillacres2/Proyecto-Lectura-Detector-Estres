@@ -82,13 +82,13 @@ export const AdminDashboard = () => {
         navigate("/login");
     };
 
-    // --- TOOLTIP DEL PASTEL CORREGIDO ---
+   // --- TOOLTIP DEL PASTEL ---
     const CustomTooltipPie = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
-            // Calculamos el porcentaje sobre los EVALUADOS, no los inscritos
-            const evaluated = globalStats?.total_evaluated || 1;
-            const percent = ((data.value / evaluated) * 100).toFixed(1);
+            // Usamos el total de EVALUADOS para el porcentaje
+            const evaluatedTotal = globalStats?.total_evaluated || 1;
+            const percent = evaluatedTotal > 0 ? ((data.value / evaluatedTotal) * 100).toFixed(1) : 0;
 
             return (
                 <div style={{ background: "white", padding: "12px", border: "1px solid #eee", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
