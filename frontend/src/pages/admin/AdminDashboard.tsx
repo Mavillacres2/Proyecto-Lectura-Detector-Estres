@@ -223,11 +223,11 @@ export const AdminDashboard = () => {
                                     {/* Usamos el TOTAL de la lista (3), no de las evaluaciones (1) */}
                                     {students.length}
                                 </div>
-                                <div style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: "600", marginTop: "0px" }}>INSCRITOS</div>
+                                <div style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: "600", marginTop: "0px" }}>Estudiantes</div>
 
                                 {/* Indicador pequeño de cuántos han dado la prueba */}
                                 <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "5px", background: "#f1f5f9", padding: "2px 8px", borderRadius: "10px" }}>
-                                    {globalStats?.total_evaluations || 0} Evaluados
+                                    {globalStats?.total_enrolled || 0} Evaluados
                                 </div>
                             </div>
 
