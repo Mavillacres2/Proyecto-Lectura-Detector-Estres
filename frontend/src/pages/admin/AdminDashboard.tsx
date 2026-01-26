@@ -231,12 +231,7 @@ export const AdminDashboard = () => {
                                 </div>
                             </div>
 
-                            <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", pointerEvents: "none" }}>
-                                <div style={{ fontSize: "3rem", fontWeight: "bold", color: "#0f172a", lineHeight: "1" }}>
-                                    {globalStats?.total_evaluations || 0}
-                                </div>
-                                <div style={{ fontSize: "0.9rem", color: "#94a3b8", fontWeight: "600", marginTop: "5px" }}>ESTUDIANTES</div>
-                            </div>
+                            
                         </div>
                     </div>
 
