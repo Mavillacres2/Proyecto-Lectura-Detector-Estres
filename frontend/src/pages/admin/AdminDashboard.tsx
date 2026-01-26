@@ -82,37 +82,26 @@ export const AdminDashboard = () => {
         navigate("/login");
     };
 
-    // Tooltip para el PieChart (Dona)
-  
+    // --- TOOLTIP DEL PASTEL CORREGIDO ---
     const CustomTooltipPie = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
-            // Calculamos el % basándonos en el total de evaluados (para que sume 100% la dona)
-            const total = globalStats?.total_evaluations || 1; 
-            const percent = ((data.value / total) * 100).toFixed(1);
+            // Calculamos el porcentaje sobre los EVALUADOS, no los inscritos
+            const evaluated = globalStats?.total_evaluated || 1;
+            const percent = ((data.value / evaluated) * 100).toFixed(1);
 
             return (
                 <div style={{ background: "white", padding: "12px", border: "1px solid #eee", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-                    {/* Título con el color del nivel */}
-                    <p style={{ margin: 0, fontWeight: "bold", color: data.fill, fontSize: "1rem" }}>
-                        Nivel {data.name}
-                    </p>
-                    
-                    {/* Aquí muestra el NÚMERO exacto de estudiantes con ese nivel */}
-                    <p style={{ margin: "5px 0 0 0", color: "#333" }}>
-                        Estudiantes: <strong>{data.value}</strong>
-                    </p>
-                    
-                    {/* Porcentaje relativo */}
-                    <p style={{ margin: 0, color: "#666", fontSize: "0.9rem" }}>
-                        {percent}% de los evaluados
+                    <p style={{ margin: 0, fontWeight: "bold", color: data.fill, fontSize: "1rem" }}>Nivel {data.name}</p>
+                    <p style={{ margin: "5px 0 0 0", color: "#333" }}>Alumnos: <strong>{data.value}</strong></p>
+                    <p style={{ margin: 0, color: "#666", fontSize: "0.85rem" }}>
+                        ({percent}% de los evaluados)
                     </p>
                 </div>
             );
         }
         return null;
     };
-
     // ---------------------------------------------------------
     // 🔧 CORRECCIÓN INTELIGENTE: Normalización de Datos
     // ---------------------------------------------------------
@@ -234,13 +223,13 @@ export const AdminDashboard = () => {
                             <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", pointerEvents: "none" }}>
                                 <div style={{ fontSize: "3rem", fontWeight: "bold", color: "#0f172a", lineHeight: "1" }}>
                                     {/* Usamos el TOTAL de la lista (3), no de las evaluaciones (1) */}
-                                    {students.length}
+                                    {globalStats?.total_enrolled || 0}
                                 </div>
                                 <div style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: "600", marginTop: "0px" }}>Estudiantes</div>
 
                                 {/* Indicador pequeño de cuántos han dado la prueba */}
                                 <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "5px", background: "#f1f5f9", padding: "2px 8px", borderRadius: "10px" }}>
-                                    {globalStats?.total_enrolled || 0} Evaluados
+                                    {globalStats?.total_evaluated || 0} Evaluados
                                 </div>
                             </div>
 
