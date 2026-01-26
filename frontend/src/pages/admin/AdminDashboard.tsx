@@ -83,17 +83,30 @@ export const AdminDashboard = () => {
     };
 
     // Tooltip para el PieChart (Dona)
+  
     const CustomTooltipPie = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
-            const total = globalStats?.total_evaluations || 1;
+            // Calculamos el % basándonos en el total de evaluados (para que sume 100% la dona)
+            const total = globalStats?.total_evaluations || 1; 
             const percent = ((data.value / total) * 100).toFixed(1);
 
             return (
                 <div style={{ background: "white", padding: "12px", border: "1px solid #eee", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-                    <p style={{ margin: 0, fontWeight: "bold", color: data.fill, fontSize: "1rem" }}>{data.name}</p>
-                    <p style={{ margin: "5px 0 0 0", color: "#333" }}>Alumnos: <strong>{data.value}</strong></p>
-                    <p style={{ margin: 0, color: "#666", fontSize: "0.9rem" }}>Representan el {percent}%</p>
+                    {/* Título con el color del nivel */}
+                    <p style={{ margin: 0, fontWeight: "bold", color: data.fill, fontSize: "1rem" }}>
+                        Nivel {data.name}
+                    </p>
+                    
+                    {/* Aquí muestra el NÚMERO exacto de estudiantes con ese nivel */}
+                    <p style={{ margin: "5px 0 0 0", color: "#333" }}>
+                        Estudiantes: <strong>{data.value}</strong>
+                    </p>
+                    
+                    {/* Porcentaje relativo */}
+                    <p style={{ margin: 0, color: "#666", fontSize: "0.9rem" }}>
+                        {percent}% de los evaluados
+                    </p>
                 </div>
             );
         }
