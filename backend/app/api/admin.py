@@ -35,14 +35,13 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
     return user
 
-# --- 1. DASHBOARD GLOBAL CORREGIDO ---
+# --- 1. DASHBOARD GLOBAL: FOTO ACTUAL DEL AULA ---
 @router.get("/global-stats")
 def get_global_stats(
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
-    collection = mongo_db["stress_evaluations"]
-    
+    # Si el docente no tiene NRC, retornamos vacío
     if not current_user.nrc:
         return {
             "total_evaluated": 0, 
@@ -51,29 +50,29 @@ def get_global_stats(
             "warning": "Docente sin NRC"
         }
 
-    # A. TOTAL INSCRITOS (Desde SQL - Lista de Estudiantes)
-    # Esto te dará "5" si tienes 5 alumnos registrados con ese NRC
+    # A. TOTAL INSCRITOS (SQL): ¿Cuántos alumnos hay en la lista oficial?
+    # Esto cuenta a todos (los que hicieron test y los que no)
     total_enrolled = db.query(User).filter(
         User.role == 'student',
         User.nrc == current_user.nrc
     ).count()
 
-    # B. TOTAL EVALUADOS Y DISTRIBUCIÓN (Desde MongoDB)
-    # Pipeline para obtener SOLO la última evaluación de cada estudiante ÚNICO
+    # B. TOTAL EVALUADOS ÚNICOS (MongoDB): ¿Cuál es el estado actual de los que participaron?
     pipeline = [
-        # 1. Filtramos por el NRC del docente
+        # 1. Filtramos: Solo exámenes de este curso (NRC)
         {"$match": {"nrc": current_user.nrc}},
         
-        # 2. Ordenamos por fecha descendente (la más reciente primero)
+        # 2. Ordenamos: Del más reciente al más antiguo
         {"$sort": {"created_at": -1}},
         
-        # 3. Agrupamos por usuario para quedarnos solo con su última prueba
+        # 3. Agrupamos por ALUMNO: Nos quedamos solo con su PRIMER registro (el más reciente)
+        # Esto elimina las repeticiones. Si Juan hizo 5 tests, solo cuenta el último.
         {"$group": {
             "_id": "$user_id",
-            "latest_level": {"$first": "$final_stress_level"} # Extrae "Medio", "Alto", etc.
+            "latest_level": {"$first": "$final_stress_level"} # Ej: "Alto"
         }},
         
-        # 4. Ahora contamos cuántos hay de cada nivel
+        # 4. Contamos: ¿Cuántos alumnos quedaron en cada nivel?
         {"$group": {
             "_id": "$latest_level",
             "count": {"$sum": 1}
@@ -81,32 +80,33 @@ def get_global_stats(
     ]
     
     try:
-        results = list(collection.aggregate(pipeline))
+        results = list(mongo_db["stress_evaluations"].aggregate(pipeline))
     except Exception as e:
         print(f"Error en Mongo: {e}")
         return {"total_evaluated": 0, "total_enrolled": total_enrolled, "distribution": []}
     
-    # Procesar resultados
+    # Procesamos los resultados para que el Frontend los entienda fácil
     counts = {"Bajo": 0, "Medio": 0, "Alto": 0}
     
     for r in results:
         raw_level = r.get("_id") # Ej: "Medio"
-        count = r.get("count", 0) # Ej: 1
+        count = r.get("count", 0) # Ej: 5
         
         if raw_level:
-            # Normalizamos el texto (primera mayúscula) para evitar errores "medio" vs "Medio"
+            # Normalizamos texto (por si guardaste "medio" minúscula alguna vez)
             level_norm = str(raw_level).strip().capitalize()
+            
             if "Bajo" in level_norm: counts["Bajo"] += count
             elif "Medio" in level_norm: counts["Medio"] += count
             elif "Alto" in level_norm: counts["Alto"] += count
 
-    # El total de evaluados es la suma de los conteos del pipeline (NO el total de inscritos)
+    # El total de EVALUADOS es la suma de los niveles (NO la lista de inscritos)
     total_evaluated = sum(counts.values())
     
     return {
         "nrc_filter": current_user.nrc,
-        "total_evaluated": total_evaluated,  # <--- Este número será 1 si solo 1 dio la prueba
-        "total_enrolled": total_enrolled,    # <--- Este número será 5 si hay 5 alumnos
+        "total_evaluated": total_evaluated,  # Ej: 3 alumnos han dado la prueba
+        "total_enrolled": total_enrolled,    # Ej: 5 alumnos existen en total
         "distribution": [
             {"name": "Bajo", "value": counts["Bajo"], "fill": "#4caf50"},
             {"name": "Medio", "value": counts["Medio"], "fill": "#ff9800"},
