@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.database.mongo import mongo_db
 from app.database.connection import SessionLocal
 from app.models.user import User
-from app.services.auth_utils import SECRET_KEY, ALGORITHM # Asegúrate de tener estas variables importadas
+from app.services.auth_utils import SECRET_KEY, ALGORITHM
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -27,7 +27,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("user_id") # O "sub", depende de cómo creaste el token
+        user_id: str = payload.get("user_id")
         if user_id is None:
             raise credentials_exception
     except JWTError:
@@ -38,21 +38,33 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
     return user
 
-# 1. Dashboard Global: FILTRADO POR NRC DEL DOCENTE
+# 1. Dashboard Global: AHORA CUENTA INSCRITOS REALES EN SQL
 @router.get("/global-stats")
-def get_global_stats(current_user: User = Depends(get_current_user)):
+def get_global_stats(
+    db: Session = Depends(get_db), # <--- AGREGADO: Necesitamos SQL para contar estudiantes
+    current_user: User = Depends(get_current_user)
+):
     collection = mongo_db["stress_evaluations"]
     
-    # Verificamos que el docente tenga NRC asignado
+    # Verificamos que el docente tenga NRC
     if not current_user.nrc:
-        return {"total_evaluations": 0, "distribution": [], "warning": "Docente sin NRC asignado"}
+        return {
+            "total_evaluations": 0, 
+            "total_enrolled": 0, 
+            "distribution": [], 
+            "warning": "Docente sin NRC"
+        }
 
-    # Pipeline con FILTRO (Match) al inicio
+    # --- NUEVO: CONTAR TOTAL DE ESTUDIANTES INSCRITOS (SQL) ---
+    # Buscamos en la tabla de usuarios cuántos tienen el rol 'student' y el mismo NRC
+    total_enrolled = db.query(User).filter(
+        User.role == 'student',
+        User.nrc == current_user.nrc
+    ).count()
+
+    # --- LOGICA ANTIGUA: CONTAR EVALUACIONES REALIZADAS (MONGO) ---
     pipeline = [
-        # 1. FILTRAR: Solo evaluaciones que coincidan con el NRC del docente logueado
         {"$match": {"nrc": current_user.nrc}}, 
-
-        # 2. AGRUPAR: Contar por nivel de estrés
         {"$group": {
             "_id": "$final_stress_level",
             "count": {"$sum": 1}
@@ -63,7 +75,7 @@ def get_global_stats(current_user: User = Depends(get_current_user)):
         results = list(collection.aggregate(pipeline))
     except Exception as e:
         print(f"Error en Mongo: {e}")
-        return {"total_evaluations": 0, "distribution": []}
+        return {"total_evaluations": 0, "total_enrolled": total_enrolled, "distribution": []}
     
     counts = {"Bajo": 0, "Medio": 0, "Alto": 0}
     
@@ -78,11 +90,12 @@ def get_global_stats(current_user: User = Depends(get_current_user)):
             elif "Alto" in level_normalized: counts["Alto"] += count
             else: pass
 
-    total_records = sum(counts.values())
+    total_evaluations = sum(counts.values())
     
     return {
-        "nrc_filter": current_user.nrc, # Para debug: saber qué curso está viendo
-        "total_evaluations": total_records,
+        "nrc_filter": current_user.nrc,
+        "total_evaluations": total_evaluations, # Cuántos hicieron el test
+        "total_enrolled": total_enrolled,       # <--- NUEVO: Total de alumnos en lista (ej: 3)
         "distribution": [
             {"name": "Bajo", "value": counts["Bajo"], "fill": "#4caf50"},
             {"name": "Medio", "value": counts["Medio"], "fill": "#ff9800"},
@@ -90,27 +103,22 @@ def get_global_stats(current_user: User = Depends(get_current_user)):
         ]
     }
 
-# 2. Lista de Estudiantes: FILTRADO POR NRC
+# 2. Lista de Estudiantes
 @router.get("/students")
 def get_students(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not current_user.nrc:
         return []
 
-    # Traer solo estudiantes que tengan EL MISMO NRC que el administrador
     users = db.query(User).filter(
         User.role == 'student',
-        User.nrc == current_user.nrc  # <--- EL FILTRO CLAVE
+        User.nrc == current_user.nrc
     ).all()
     
     return [{"id": u.id, "name": u.full_name, "email": u.email} for u in users]
 
-# 3. Historial de Estudiante (Validar seguridad opcionalmente)
+# 3. Historial de Estudiante
 @router.get("/student-history/{student_id}")
 def get_student_history(student_id: int, current_user: User = Depends(get_current_user)):
-    # Opcional: Podríamos validar que el student_id pertenezca al NRC del docente,
-    # pero como la lista ya viene filtrada, es un riesgo menor. 
-    # Filtramos en Mongo por ID de usuario.
-    
     cursor = mongo_db["stress_evaluations"].find({"user_id": student_id}).sort("created_at", 1)
     
     history = []

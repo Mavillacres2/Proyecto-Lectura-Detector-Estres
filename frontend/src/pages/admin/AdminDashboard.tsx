@@ -105,13 +105,13 @@ export const AdminDashboard = () => {
     // ---------------------------------------------------------
     const chartData = studentHistory.map((item) => {
         let rawValue = item.negative_ratio; // Puede venir como 0.5 o 50
-        
+
         // AUTO-DETECCIÓN:
         // Si el valor es menor o igual a 1 (ej: 0.5), asumimos que es un ratio (0-1) y lo convertimos a porcentaje (50).
         // Si es mayor a 1 (ej: 50), asumimos que ya es porcentaje.
         let percentage = rawValue;
         if (rawValue <= 1.0) {
-            percentage = rawValue * 100; 
+            percentage = rawValue * 100;
         }
 
         // AHORA ESCALAMOS A PSS (0-40)
@@ -220,6 +220,19 @@ export const AdminDashboard = () => {
                             </ResponsiveContainer>
                             <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", pointerEvents: "none" }}>
                                 <div style={{ fontSize: "3rem", fontWeight: "bold", color: "#0f172a", lineHeight: "1" }}>
+                                    {/* Usamos el TOTAL de la lista (3), no de las evaluaciones (1) */}
+                                    {students.length}
+                                </div>
+                                <div style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: "600", marginTop: "0px" }}>INSCRITOS</div>
+
+                                {/* Indicador pequeño de cuántos han dado la prueba */}
+                                <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "5px", background: "#f1f5f9", padding: "2px 8px", borderRadius: "10px" }}>
+                                    {globalStats?.total_evaluations || 0} Evaluados
+                                </div>
+                            </div>
+
+                            <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", pointerEvents: "none" }}>
+                                <div style={{ fontSize: "3rem", fontWeight: "bold", color: "#0f172a", lineHeight: "1" }}>
                                     {globalStats?.total_evaluations || 0}
                                 </div>
                                 <div style={{ fontSize: "0.9rem", color: "#94a3b8", fontWeight: "600", marginTop: "5px" }}>ESTUDIANTES</div>
@@ -280,17 +293,17 @@ export const AdminDashboard = () => {
                                     <ComposedChart data={chartData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                         <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" vertical={false} />
                                         <XAxis dataKey="date" scale="point" padding={{ left: 50, right: 50 }} tick={{ fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                                        
+
                                         {/* Y-Axis FIJO en 40 */}
                                         <YAxis domain={[0, 40]} tick={{ fill: '#64748b' }} axisLine={false} label={{ value: 'Escala Unificada (0-40)', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8' } }} />
-                                        
+
                                         <Tooltip content={<CustomTooltipDetail />} />
                                         <Legend wrapperStyle={{ paddingTop: "20px" }} />
 
                                         <Bar dataKey="pss_score" name="Nivel PSS (Barra)" barSize={40} fill="#e2e8f0" radius={[4, 4, 0, 0]} />
-                                        
+
                                         <Line type="monotone" dataKey="pss_score" stroke="#6366f1" name="Puntaje Test (PSS)" strokeWidth={3} dot={{ r: 5, fill: "#6366f1", strokeWidth: 2, stroke: "white" }} activeDot={{ r: 8 }} />
-                                        
+
                                         <Line type="monotone" dataKey="facial_scaled" stroke="#10b981" name="% Negatividad Facial" strokeWidth={3} dot={{ r: 5, fill: "#10b981", strokeWidth: 2, stroke: "white" }} activeDot={{ r: 8 }} />
                                     </ComposedChart>
                                 </ResponsiveContainer>
@@ -306,7 +319,7 @@ export const AdminDashboard = () => {
                                 <div>
                                     <ul style={{ paddingLeft: "20px", margin: 0, color: "#475569", fontSize: "0.95rem", lineHeight: "1.8" }}>
                                         <li><span style={{ color: "#6366f1", fontWeight: "bold" }}>● Punto Morado (Subjetivo):</span><br />Es lo que el alumno <em>dice</em> sentir en el cuestionario (0-40).</li>
-                                        <li style={{ marginTop: "10px" }}><span style={{ color: "#10b981", fontWeight: "bold" }}>● Punto Verde (Biométrico):</span><br />Es lo que su rostro <em>demuestra</em>. <br/><em>(Nota: El % facial se ha escalado visualmente a 0-40 para poder compararlos).</em></li>
+                                        <li style={{ marginTop: "10px" }}><span style={{ color: "#10b981", fontWeight: "bold" }}>● Punto Verde (Biométrico):</span><br />Es lo que su rostro <em>demuestra</em>. <br /><em>(Nota: El % facial se ha escalado visualmente a 0-40 para poder compararlos).</em></li>
                                     </ul>
                                 </div>
                                 <div style={{ background: "#fff", padding: "15px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
@@ -320,7 +333,7 @@ export const AdminDashboard = () => {
                         </div>
 
                         {studentHistory.length > 0 && (
-                             <p style={{ textAlign: "center", fontSize: "0.9rem", color: "#555", marginTop: "15px", background: "#eef", padding: "10px", borderRadius: "5px" }}>
+                            <p style={{ textAlign: "center", fontSize: "0.9rem", color: "#555", marginTop: "15px", background: "#eef", padding: "10px", borderRadius: "5px" }}>
                                 ℹ️ <strong>Ayuda visual:</strong> Los puntos representan cada sesión. Si solo ves un punto, significa que el estudiante solo ha realizado una prueba hasta ahora.
                             </p>
                         )}
