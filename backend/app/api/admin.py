@@ -38,15 +38,14 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
     return user
 
-# 1. Dashboard Global: AHORA CUENTA INSCRITOS REALES EN SQL
+# 1. Dashboard Global: ÚLTIMO ESTADO POR ESTUDIANTE
 @router.get("/global-stats")
 def get_global_stats(
-    db: Session = Depends(get_db), # <--- AGREGADO: Necesitamos SQL para contar estudiantes
+    db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
     collection = mongo_db["stress_evaluations"]
     
-    # Verificamos que el docente tenga NRC
     if not current_user.nrc:
         return {
             "total_evaluations": 0, 
@@ -55,18 +54,29 @@ def get_global_stats(
             "warning": "Docente sin NRC"
         }
 
-    # --- NUEVO: CONTAR TOTAL DE ESTUDIANTES INSCRITOS (SQL) ---
-    # Buscamos en la tabla de usuarios cuántos tienen el rol 'student' y el mismo NRC
+    # 1. Obtener total de inscritos (SQL)
     total_enrolled = db.query(User).filter(
         User.role == 'student',
         User.nrc == current_user.nrc
     ).count()
 
-    # --- LOGICA ANTIGUA: CONTAR EVALUACIONES REALIZADAS (MONGO) ---
+    # 2. Pipeline para obtener el ÚLTIMO estado de cada alumno (MongoDB)
     pipeline = [
-        {"$match": {"nrc": current_user.nrc}}, 
+        # A. Filtrar solo documentos de este curso
+        {"$match": {"nrc": current_user.nrc}},
+        
+        # B. Ordenar por fecha descendente (lo más reciente primero)
+        {"$sort": {"created_at": -1}},
+        
+        # C. Agrupar por usuario y tomar solo el primer registro (el más reciente)
         {"$group": {
-            "_id": "$final_stress_level",
+            "_id": "$user_id",
+            "latest_level": {"$first": "$final_stress_level"}
+        }},
+        
+        # D. Contar cuántos hay de cada nivel en esos registros únicos
+        {"$group": {
+            "_id": "$latest_level",
             "count": {"$sum": 1}
         }}
     ]
@@ -80,7 +90,7 @@ def get_global_stats(
     counts = {"Bajo": 0, "Medio": 0, "Alto": 0}
     
     for r in results:
-        raw_level = r.get("_id")
+        raw_level = r.get("_id") # Puede ser "Medio", "Alto", etc.
         count = r.get("count", 0)
         
         if raw_level:
@@ -88,14 +98,15 @@ def get_global_stats(
             if "Bajo" in level_normalized: counts["Bajo"] += count
             elif "Medio" in level_normalized: counts["Medio"] += count
             elif "Alto" in level_normalized: counts["Alto"] += count
-            else: pass
+            # Si sale algo raro, no sumamos para no romper la gráfica
 
-    total_evaluations = sum(counts.values())
+    # Suma de alumnos únicos evaluados
+    unique_students_evaluated = sum(counts.values())
     
     return {
         "nrc_filter": current_user.nrc,
-        "total_evaluations": total_evaluations, # Cuántos hicieron el test
-        "total_enrolled": total_enrolled,       # <--- NUEVO: Total de alumnos en lista (ej: 3)
+        "total_evaluations": unique_students_evaluated, # Ahora representa ALUMNOS, no exámenes
+        "total_enrolled": total_enrolled,       
         "distribution": [
             {"name": "Bajo", "value": counts["Bajo"], "fill": "#4caf50"},
             {"name": "Medio", "value": counts["Medio"], "fill": "#ff9800"},
@@ -126,7 +137,7 @@ def get_student_history(student_id: int, current_user: User = Depends(get_curren
         history.append({
             "date": doc["created_at"].strftime("%Y-%m-%d %H:%M"),
             "pss_score": doc.get("pss_score", 0),
-            "negative_ratio": doc.get("negative_ratio", 0) * 100,
+            "negative_ratio": doc.get("negative_ratio", 0) * 100, # Convertir a % para consistencia
             "final_level": doc.get("final_stress_level", "Medio")
         })
         
