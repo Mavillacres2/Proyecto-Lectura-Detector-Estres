@@ -114,12 +114,39 @@ def get_global_stats(
         ]
     }
 
-# 2. Lista de Estudiantes
+# 2. Lista de Estudiantes con ESTADO ACTUAL
 @router.get("/students")
 def get_students(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not current_user.nrc: return []
-    users = db.query(User).filter(User.role == 'student', User.nrc == current_user.nrc).all()
-    return [{"id": u.id, "name": u.full_name, "email": u.email} for u in users]
+
+    # 1. Traer usuarios de SQL
+    users = db.query(User).filter(
+        User.role == 'student', 
+        User.nrc == current_user.nrc
+    ).all()
+    
+    student_list = []
+    
+    # 2. Por cada alumno, buscamos su última "nota" de estrés en Mongo
+    for u in users:
+        last_eval = mongo_db["stress_evaluations"].find_one(
+            {"user_id": u.id},
+            sort=[("created_at", -1)] # El más reciente
+        )
+        
+        # Si tiene evaluación, tomamos el nivel. Si no, es "Pendiente"
+        current_level = "Pendiente"
+        if last_eval and "final_stress_level" in last_eval:
+            current_level = str(last_eval["final_stress_level"]).capitalize()
+            
+        student_list.append({
+            "id": u.id, 
+            "name": u.full_name, 
+            "email": u.email,
+            "level": current_level # <--- NUEVO CAMPO QUE ENVIAREMOS
+        })
+
+    return student_list
 
 # 3. Historial de Estudiante
 @router.get("/student-history/{student_id}")

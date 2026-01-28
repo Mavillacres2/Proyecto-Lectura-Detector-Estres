@@ -17,6 +17,17 @@ const COLORS = {
     "Alto": "#f44336"   // Rojo
 };
 
+// Función auxiliar para obtener color según el nivel (para la lista)
+const getStressColor = (level: string) => {
+    // Normalizamos texto para evitar errores de mayúsculas/minúsculas
+    const normalized = level ? level.charAt(0).toUpperCase() + level.slice(1).toLowerCase() : "";
+    
+    if (normalized.includes("Alto")) return "#f44336"; // Rojo
+    if (normalized.includes("Medio")) return "#ff9800"; // Naranja
+    if (normalized.includes("Bajo")) return "#4caf50";  // Verde
+    return "#cbd5e1"; // Gris (Pendiente o Sin datos)
+};
+
 export const AdminDashboard = () => {
     const navigate = useNavigate();
     const [view, setView] = useState<"global" | "detail">("global");
@@ -102,6 +113,10 @@ export const AdminDashboard = () => {
         }
         return null;
     };
+
+
+
+   
     // ---------------------------------------------------------
     // 🔧 CORRECCIÓN INTELIGENTE: Normalización de Datos
     // ---------------------------------------------------------
@@ -156,7 +171,6 @@ export const AdminDashboard = () => {
         }
         return null;
     };
-
 
     return (
         <div style={{ minHeight: "100vh", background: "#f0f2f5", padding: "20px", fontFamily: "'Segoe UI', Roboto, sans-serif" }}>
@@ -237,24 +251,37 @@ export const AdminDashboard = () => {
                         </div>
                     </div>
 
-                    {/* Tarjeta 2: Lista */}
+                    {/* --- LISTA DE ESTUDIANTES CON SEMÁFORO --- */}
                     <div style={{ background: "white", padding: "25px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column", maxHeight: "550px" }}>
-                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: "0 0 20px 0", color: "#334155" }}>
-                            <Users size={20} /> Lista de Estudiantes (NRC: {globalStats?.nrc_filter || "..."})
-                        </h3>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: "0 0 20px 0", color: "#334155" }}><Users size={20} /> Lista de Estudiantes</h3>
                         <div style={{ overflowY: "auto", paddingRight: "5px", flex: 1 }}>
                             {students.length === 0 ? (
-                                <p style={{ color: "#999", textAlign: "center", marginTop: "20px" }}>No hay estudiantes registrados en este curso.</p>
+                                <p style={{ color: "#999", textAlign: "center", marginTop: "20px" }}>No hay estudiantes registrados.</p>
                             ) : (
                                 students.map((s) => (
                                     <div key={s.id} onClick={() => handleStudentClick(s)} style={{ padding: "16px", marginBottom: "10px", borderRadius: "8px", border: "1px solid #f1f5f9", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "all 0.2s ease" }}
                                         onMouseEnter={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.borderColor = "#cbd5e1"; e.currentTarget.style.transform = "translateX(5px)"; }}
                                         onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#f1f5f9"; e.currentTarget.style.transform = "translateX(0)"; }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                                            <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", color: "#64748b", fontSize: "1.1rem" }}>{s.name.charAt(0).toUpperCase()}</div>
+                                            
+                                            {/* Círculo con INICIALES y COLOR DE ESTRÉS */}
+                                            <div style={{ 
+                                                width: "45px", height: "45px", borderRadius: "50%", 
+                                                background: getStressColor(s.level), // <--- AQUÍ SE APLICA EL COLOR DINÁMICO
+                                                display: "flex", alignItems: "center", justifyContent: "center", 
+                                                fontWeight: "bold", color: "white", fontSize: "1.2rem",
+                                                boxShadow: "0 2px 5px rgba(0,0,0,0.1)"
+                                            }}>
+                                                {s.name.charAt(0).toUpperCase()}
+                                            </div>
+
                                             <div>
                                                 <div style={{ fontWeight: "600", color: "#334155" }}>{s.name}</div>
                                                 <div style={{ fontSize: "0.85rem", color: "#94a3b8" }}>{s.email}</div>
+                                                {/* Etiqueta de nivel debajo del email (opcional, para más claridad) */}
+                                                <div style={{ fontSize: "0.75rem", fontWeight: "600", color: getStressColor(s.level), marginTop:"2px" }}>
+                                                    {s.level ? `Nivel: ${s.level}` : "Sin evaluar"}
+                                                </div>
                                             </div>
                                         </div>
                                         <ChevronRight size={20} color="#cbd5e1" />
